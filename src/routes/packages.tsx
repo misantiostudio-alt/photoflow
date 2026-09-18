@@ -44,6 +44,16 @@ const emptyForm = (type: PackageProductType): PackageForm => ({
   active: true,
 });
 
+const COMMON_PRINT_SIZES = [
+  "4R",
+  "5R",
+  "6R",
+  "8R / 8×10",
+  "8×12",
+  "11R / 11×14",
+  "12×16",
+] as const;
+
 const PSS_DEFAULTS = [
   { code: "P1", product_type: "group_package", name: "Class Photo · Print", price: 150, print_size: "8R / 8×10", quantity: 1, framed: false, description: "Official class/group photo · print only" },
   { code: "P2", product_type: "group_package", name: "Class Photo · Framed", price: 550, print_size: "8R / 8×10", quantity: 1, framed: true, description: "Official class/group photo with frame + white mat" },
@@ -228,7 +238,7 @@ function PackagesPage() {
                 <Field label="Code"><Input value={form.code} onChange={(event) => setForm({ ...form, code: event.target.value })} placeholder={form.product_type === "group_package" ? "P1" : "Optional"} /></Field>
                 <div className="lg:col-span-2"><Field label="Product name"><Input value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} placeholder={form.product_type === "group_package" ? "Class Photo · Framed" : "Solo 5R + Frame"} /></Field></div>
                 <Field label="Price"><Input type="number" min="0" value={form.price} onChange={(event) => setForm({ ...form, price: event.target.value })} placeholder="550" /></Field>
-                <Field label="Print size"><Input value={form.print_size} onChange={(event) => setForm({ ...form, print_size: event.target.value })} placeholder="8R / 8×10" /></Field>
+                <Field label="Print size"><Input list="photoflow-print-sizes" value={form.print_size} onChange={(event) => setForm({ ...form, print_size: event.target.value })} placeholder="8R / 8×10" /><datalist id="photoflow-print-sizes">{COMMON_PRINT_SIZES.map((size) => <option key={size} value={size} />)}</datalist><p className="text-[0.65rem] text-muted-foreground">Choose a common size or type any custom size.</p></Field>
                 <Field label="Prints per product"><Input type="number" min="1" value={form.quantity} onChange={(event) => setForm({ ...form, quantity: event.target.value })} /></Field>
                 <label className="flex items-center gap-2 pt-6 text-sm"><Checkbox checked={form.framed} onCheckedChange={(checked) => setForm({ ...form, framed: checked === true })} /> Black frame</label>
                 <label className="flex items-center gap-2 pt-6 text-sm"><Checkbox checked={form.digital_copy} onCheckedChange={(checked) => setForm({ ...form, digital_copy: checked === true })} /> Digital copy included</label>
@@ -245,7 +255,7 @@ function PackagesPage() {
           </section>
 
           <section className="mt-8 border-t border-border pt-7">
-            <div className="mb-3 flex items-end justify-between gap-3"><div><p className="eyebrow">Optional</p><h2 className="mt-1 font-display text-2xl font-extrabold">Solo Portrait Add-ons</h2><p className="mt-1 text-sm text-muted-foreground">These use the client’s selected solo portrait and are added on top of the class package.</p></div><Button size="sm" variant="outline" onClick={() => startNew("solo_addon")}><Plus className="size-4" /> Solo add-on</Button></div>
+            <div className="mb-3 flex items-end justify-between gap-3"><div><p className="eyebrow">Optional</p><h2 className="mt-1 font-display text-2xl font-extrabold">Solo Portrait Add-ons</h2><p className="mt-1 text-sm text-muted-foreground">Create any solo size you offer—5R, 8R, 8×12, 11R, 12×16 or a custom size—with or without a frame.</p></div><Button size="sm" variant="outline" onClick={() => startNew("solo_addon")}><Plus className="size-4" /> Solo add-on</Button></div>
             {soloAddons.length ? <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">{soloAddons.map((item) => <ProductCard key={item.id} item={item} onEdit={() => startEdit(item)} onToggle={() => void toggle(item)} onRemove={() => void remove(item)} />)}</div> : <EmptyState title="No solo add-ons yet" description="Solo add-ons are optional. Clients can order only the class package if they prefer." />}
           </section>
         </>

@@ -12,6 +12,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { supabase } from "@/integrations/supabase/client";
 import { withTimeout } from "@/lib/async";
 import { useOps, useSession } from "@/lib/data";
+import { parsePaymentProfile, serializePaymentProfile } from "@/lib/payment-profile";
 
 export const Route = createFileRoute("/settings")({ component: SettingsPage });
 
@@ -27,6 +28,14 @@ function SettingsPage() {
   const [orderingDeadline, setOrderingDeadline] = useState("");
   const [deliveryDate, setDeliveryDate] = useState("");
   const [paymentInstructions, setPaymentInstructions] = useState("");
+  const [gcashName, setGcashName] = useState("");
+  const [gcashNumber, setGcashNumber] = useState("");
+  const [gcashQrUrl, setGcashQrUrl] = useState("");
+  const [gcashQrFile, setGcashQrFile] = useState<File | null>(null);
+  const [mayaName, setMayaName] = useState("");
+  const [mayaNumber, setMayaNumber] = useState("");
+  const [mayaQrUrl, setMayaQrUrl] = useState("");
+  const [mayaQrFile, setMayaQrFile] = useState<File | null>(null);
   const [description, setDescription] = useState("");
   const [saving, setSaving] = useState(false);
 
@@ -40,7 +49,14 @@ function SettingsPage() {
     setVenue(data?.event?.venue ?? "");
     setOrderingDeadline(data?.event?.ordering_deadline ?? "");
     setDeliveryDate(data?.event?.delivery_date ?? "");
-    setPaymentInstructions(data?.event?.payment_instructions ?? "");
+    const profile = parsePaymentProfile(data?.event?.payment_instructions);
+    setPaymentInstructions(profile.notes);
+    setGcashName(profile.gcash.name);
+    setGcashNumber(profile.gcash.number);
+    setGcashQrUrl(profile.gcash.qrUrl);
+    setMayaName(profile.maya.name);
+    setMayaNumber(profile.maya.number);
+    setMayaQrUrl(profile.maya.qrUrl);
     setDescription(data?.event?.description ?? "");
   }, [data?.event?.id, data?.event?.venue, data?.event?.ordering_deadline, data?.event?.delivery_date, data?.event?.payment_instructions, data?.event?.description]);
 
@@ -68,26 +84,58 @@ function SettingsPage() {
     return <AppShell><PageHeader eyebrow="Configuration" title="Settings" /><LoadingGrid rows={4} /></AppShell>;
   }
 
+  async function uploadPaymentQr(method: "gcash" | "maya", file: File) {
+    if (!data.event) throw new Error("No active event.");
+    if (!file.type.startsWith("image/")) throw new Error("QR must be an image file.");
+
+    const path = `${data.event.id}/payments/${method}-qr`;
+    const upload = await withTimeout(
+      supabase.storage.from("event-photos").upload(path, file, {
+        upsert: true,
+        contentType: file.type || "image/png",
+        cacheControl: "3600",
+      }),
+      20_000,
+      `Uploading ${method.toUpperCase()} QR took too long.`,
+    );
+    if (upload.error) throw upload.error;
+    return supabase.storage.from("event-photos").getPublicUrl(path).data.publicUrl + `?v=${Date.now()}`;
+  }
+
   async function saveEventSettings() {
     if (!email) return void navigate({ to: "/auth" });
     if (!data.event) return;
     setSaving(true);
     try {
+      let nextGcashQr = gcashQrUrl || null;
+      let nextMayaQr = mayaQrUrl || null;
+      if (gcashQrFile) nextGcashQr = await uploadPaymentQr("gcash", gcashQrFile);
+      if (mayaQrFile) nextMayaQr = await uploadPaymentQr("maya", mayaQrFile);
+
+      const encodedPaymentProfile = serializePaymentProfile({
+        version: 1,
+        notes: paymentInstructions,
+        gcash: { name: gcashName, number: gcashNumber, qrUrl: nextGcashQr ?? "" },
+        maya: { name: mayaName, number: mayaNumber, qrUrl: nextMayaQr ?? "" },
+      });
+
       const { error } = await withTimeout(
         supabase
           .from("events")
           .update({
-          venue: venue.trim() || null,
-          ordering_deadline: orderingDeadline || null,
-          delivery_date: deliveryDate || null,
-          payment_instructions: paymentInstructions.trim() || null,
-          description: description.trim() || null,
+            venue: venue.trim() || null,
+            ordering_deadline: orderingDeadline || null,
+            delivery_date: deliveryDate || null,
+            payment_instructions: encodedPaymentProfile,
+            description: description.trim() || null,
           })
           .eq("id", data.event.id),
-        12_000,
+        20_000,
         "Saving event settings took too long.",
       );
       if (error) throw error;
+      setGcashQrFile(null);
+      setMayaQrFile(null);
       await withTimeout(refetch(), 12_000, "Settings saved, but the workspace refresh took too long.");
       toast.success("Event settings saved");
     } catch (error) {
@@ -190,8 +238,36 @@ function SettingsPage() {
             </div>
           </Panel>
 
-          <Panel title="Client payment instructions" description="Shown to clients after they submit an order.">
-            <Textarea rows={8} value={paymentInstructions} onChange={(event) => setPaymentInstructions(event.target.value)} placeholder="GCash/Maya details, cash payment desk, payment reference instructions…" />
+          <Panel title="Client payment methods" description="Shown after an order is confirmed. Add account details and the QR image from your GCash/Maya app.">
+            <div className="grid gap-5">
+              <div className="rounded-lg border border-border bg-muted/10 p-4">
+                <p className="text-sm font-semibold">GCash</p>
+                <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                  <Field label="Account name"><Input value={gcashName} onChange={(event) => setGcashName(event.target.value)} placeholder="Michael T." /></Field>
+                  <Field label="Mobile / account number"><Input inputMode="numeric" value={gcashNumber} onChange={(event) => setGcashNumber(event.target.value)} placeholder="09XXXXXXXXX" /></Field>
+                </div>
+                <div className="mt-3 grid gap-3 sm:grid-cols-[1fr_110px]">
+                  <Field label="GCash QR image"><Input type="file" accept="image/png,image/jpeg,image/webp" onChange={(event) => setGcashQrFile(event.target.files?.[0] ?? null)} /></Field>
+                  {gcashQrUrl ? <img src={gcashQrUrl} alt="Current GCash QR" className="aspect-square w-full rounded-md border border-border bg-white object-contain p-1" /> : <div className="grid aspect-square place-items-center rounded-md border border-dashed border-border text-center text-[0.65rem] text-muted-foreground">No QR yet</div>}
+                </div>
+              </div>
+
+              <div className="rounded-lg border border-border bg-muted/10 p-4">
+                <p className="text-sm font-semibold">Maya</p>
+                <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                  <Field label="Account name"><Input value={mayaName} onChange={(event) => setMayaName(event.target.value)} placeholder="Michael T." /></Field>
+                  <Field label="Mobile / account number"><Input inputMode="numeric" value={mayaNumber} onChange={(event) => setMayaNumber(event.target.value)} placeholder="09XXXXXXXXX" /></Field>
+                </div>
+                <div className="mt-3 grid gap-3 sm:grid-cols-[1fr_110px]">
+                  <Field label="Maya QR image"><Input type="file" accept="image/png,image/jpeg,image/webp" onChange={(event) => setMayaQrFile(event.target.files?.[0] ?? null)} /></Field>
+                  {mayaQrUrl ? <img src={mayaQrUrl} alt="Current Maya QR" className="aspect-square w-full rounded-md border border-border bg-white object-contain p-1" /> : <div className="grid aspect-square place-items-center rounded-md border border-dashed border-border text-center text-[0.65rem] text-muted-foreground">No QR yet</div>}
+                </div>
+              </div>
+
+              <Field label="Additional payment instructions">
+                <Textarea rows={4} value={paymentInstructions} onChange={(event) => setPaymentInstructions(event.target.value)} placeholder="Optional notes for cash, bank transfer, payment reference, etc." />
+              </Field>
+            </div>
           </Panel>
 
           <Panel title="Staff account" description="Your current PhotoFlow authorization.">

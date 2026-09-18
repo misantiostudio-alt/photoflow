@@ -37,7 +37,7 @@ function OrderPassPage() {
   if (error || !data) return <div className="grid min-h-screen place-items-center bg-background p-6 text-center text-foreground"><div><h1 className="font-display text-3xl font-extrabold">Order Pass unavailable</h1><p className="mt-2 text-sm text-muted-foreground">{error instanceof Error ? error.message : "This order could not be found."}</p></div></div>;
 
   const balance = Math.max(0, data.total - data.paid);
-  const paymentLabel = data.payment_pending ? "Payment submitted · for verification" : data.payment_status === "paid" ? "Payment verified" : balance > 0 ? `May natitirang balance na ${peso(balance)}` : "Payment complete";
+  const paymentLabel = data.payment_pending ? "Payment submitted · for verification" : data.payment_status === "paid" ? "Payment verified" : balance > 0 ? `Balance due: ${peso(balance)}` : "Payment complete";
   const productionLabel = data.production_status === "delivered" ? "Order received" : data.production_status === "ready" ? "Ready for pickup" : titleize(data.production_status);
 
   return (
@@ -54,7 +54,7 @@ function OrderPassPage() {
           </div>
         </section>
 
-        <p className="mt-5 text-center text-xs leading-5 text-muted-foreground">Hindi mo kailangang gumawa ng account. Itago lang ang Order Pass/QR na ito at ipakita sa release desk kapag kukunin na ang order.</p>
+        <p className="mt-5 text-center text-xs text-muted-foreground">Present this Order Pass at pickup.</p>
       </div>
     </div>
   );

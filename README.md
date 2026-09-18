@@ -1084,3 +1084,5 @@ npm run dev
 ```
 
 <!-- lovable-sync: packages-v2-2026-09-18 -->
+
+<!-- lovable-sync-after-reconnect: 2026-09-18-packages-v2 -->

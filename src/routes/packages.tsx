@@ -1,5 +1,18 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { Check, Edit3, PackagePlus, Plus, Sparkles, Trash2 } from "lucide-react";
+import {
+  Check,
+  Copy,
+  Edit3,
+  Eye,
+  EyeOff,
+  Image,
+  Images,
+  PackageCheck,
+  PackagePlus,
+  Plus,
+  Sparkles,
+  Trash2,
+} from "lucide-react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
@@ -15,6 +28,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { withTimeout } from "@/lib/async";
 import { useOps, useSession, type PackageProductType, type PackageRow } from "@/lib/data";
 import { peso } from "@/lib/domain";
+import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/packages")({ component: PackagesPage });
 
@@ -53,26 +67,134 @@ const PSS_DEFAULTS = [
   { code: null, product_type: "solo_addon", name: "Solo 12×16 + Frame", price: 950, print_size: "12×16", quantity: 1, framed: true, description: "Optional large solo portrait in black frame" },
 ] as const;
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
-  return <label className="grid gap-1.5"><Label>{label}</Label>{children}</label>;
+function Field({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
+  return (
+    <label className="grid gap-1.5">
+      <div className="flex items-end justify-between gap-2">
+        <Label>{label}</Label>
+        {hint ? <span className="text-[0.62rem] text-muted-foreground">{hint}</span> : null}
+      </div>
+      {children}
+    </label>
+  );
 }
 
-function ProductCard({ item, onEdit, onToggle, onRemove }: { item: PackageRow; onEdit: () => void; onToggle: () => void; onRemove: () => void }) {
+function SummaryCard({
+  icon: Icon,
+  label,
+  value,
+  note,
+}: {
+  icon: typeof Images;
+  label: string;
+  value: string;
+  note: string;
+}) {
   return (
-    <Panel key={item.id} title={`${item.code ? `${item.code} · ` : ""}${item.name}`} description={item.description ?? undefined} className={!item.active ? "opacity-60" : undefined}>
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <p className="font-display text-3xl font-extrabold">{peso(item.price)}</p>
-          <p className="mt-2 text-sm text-muted-foreground">{item.quantity} × {item.print_size}{item.framed ? " · Black / White / Brown frame · White mat" : " · Print only"}</p>
+    <div className="rounded-lg border border-border bg-card/55 p-3.5">
+      <div className="flex items-center justify-between gap-3">
+        <p className="eyebrow">{label}</p>
+        <Icon className="size-4 text-primary/80" />
+      </div>
+      <p className="mt-2 font-display text-2xl font-extrabold tracking-[-0.04em]">{value}</p>
+      <p className="mt-1 text-[0.68rem] leading-relaxed text-muted-foreground">{note}</p>
+    </div>
+  );
+}
+
+function ProductCard({
+  item,
+  onEdit,
+  onDuplicate,
+  onToggle,
+  onRemove,
+}: {
+  item: PackageRow;
+  onEdit: () => void;
+  onDuplicate: () => void;
+  onToggle: () => void;
+  onRemove: () => void;
+}) {
+  const isGroup = item.product_type === "group_package";
+
+  return (
+    <article
+      className={cn(
+        "group relative overflow-hidden rounded-xl border bg-card/65 transition-colors",
+        item.active ? "border-border hover:border-primary/25" : "border-border/65 opacity-70",
+      )}
+    >
+      <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-primary/30 to-transparent opacity-0 transition-opacity group-hover:opacity-100" />
+
+      <div className="border-b border-border px-4 py-3.5">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <div className="mb-2 flex flex-wrap items-center gap-1.5">
+              {item.code ? (
+                <span className="rounded border border-primary/20 bg-primary/5 px-2 py-1 font-mono text-[0.62rem] font-bold tracking-[0.12em] text-primary">
+                  {item.code}
+                </span>
+              ) : null}
+              <span className="rounded border border-border bg-background/50 px-2 py-1 text-[0.61rem] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
+                {isGroup ? "Class / Group" : "Solo Add-on"}
+              </span>
+            </div>
+            <h3 className="font-display text-[0.9rem] font-extrabold tracking-[-0.025em]">{item.name}</h3>
+            <p className="mt-1 min-h-8 text-[0.68rem] leading-relaxed text-muted-foreground">
+              {item.description || (isGroup ? "Official class/group photo package" : "Optional solo portrait product")}
+            </p>
+          </div>
+          <StatusPill label={item.active ? "Client visible" : "Hidden"} tone={item.active ? "success" : "neutral"} />
         </div>
-        <StatusPill label={item.active ? "Client visible" : "Hidden"} tone={item.active ? "success" : "neutral"} />
       </div>
-      <div className="mt-5 flex flex-wrap gap-2 border-t border-border pt-4">
-        <Button size="sm" variant="outline" onClick={onEdit}><Edit3 className="size-4" /> Edit</Button>
-        <Button size="sm" variant="ghost" onClick={onToggle}>{item.active ? "Hide" : "Activate"}</Button>
-        <Button size="sm" variant="ghost" onClick={onRemove}><Trash2 className="size-4" /> Delete</Button>
+
+      <div className="p-4">
+        <div className="flex items-end justify-between gap-4">
+          <div>
+            <p className="font-display text-[2rem] font-extrabold tracking-[-0.055em]">{peso(item.price)}</p>
+            <p className="mt-1 text-[0.64rem] uppercase tracking-[0.08em] text-muted-foreground">
+              {isGroup ? "Primary package" : "Optional add-on"}
+            </p>
+          </div>
+          <div className="text-right text-[0.65rem] text-muted-foreground">
+            <p>{item.quantity} print{item.quantity === 1 ? "" : "s"}</p>
+            <p className="mt-0.5 font-semibold text-foreground/80">{item.print_size}</p>
+          </div>
+        </div>
+
+        <div className="mt-4 flex flex-wrap gap-1.5">
+          <span className="rounded-md border border-border bg-background/45 px-2 py-1 text-[0.63rem] text-muted-foreground">
+            {item.framed ? "Framed + white mat" : "Print only"}
+          </span>
+          {item.digital_copy ? (
+            <span className="rounded-md border border-border bg-background/45 px-2 py-1 text-[0.63rem] text-muted-foreground">
+              Digital copy included
+            </span>
+          ) : null}
+        </div>
+
+        <div className="mt-4 grid grid-cols-2 gap-2 border-t border-border pt-4 sm:flex sm:flex-wrap">
+          <Button size="sm" variant="outline" onClick={onEdit}>
+            <Edit3 className="size-3.5" /> Edit
+          </Button>
+          <Button size="sm" variant="ghost" onClick={onToggle}>
+            {item.active ? <EyeOff className="size-3.5" /> : <Eye className="size-3.5" />}
+            {item.active ? "Hide" : "Show"}
+          </Button>
+          <Button size="sm" variant="ghost" onClick={onDuplicate}>
+            <Copy className="size-3.5" /> Duplicate
+          </Button>
+          <Button
+            size="sm"
+            variant="ghost"
+            className="text-muted-foreground hover:text-destructive"
+            onClick={onRemove}
+          >
+            <Trash2 className="size-3.5" /> Delete
+          </Button>
+        </div>
       </div>
-    </Panel>
+    </article>
   );
 }
 
@@ -86,10 +208,36 @@ function PackagesPage() {
   const [saving, setSaving] = useState(false);
   const [loadingDefaults, setLoadingDefaults] = useState(false);
 
-  const groupPackages = useMemo(() => data?.packages.filter((item) => item.product_type === "group_package") ?? [], [data?.packages]);
-  const soloAddons = useMemo(() => data?.packages.filter((item) => item.product_type === "solo_addon") ?? [], [data?.packages]);
+  const groupPackages = useMemo(
+    () =>
+      (data?.packages.filter((item) => item.product_type === "group_package") ?? [])
+        .slice()
+        .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0)),
+    [data?.packages],
+  );
 
-  if (isLoading || !data) return <AppShell><PageHeader eyebrow="Pricing" title="Packages & Pricing" /><LoadingGrid rows={5} /></AppShell>;
+  const soloAddons = useMemo(
+    () =>
+      (data?.packages.filter((item) => item.product_type === "solo_addon") ?? [])
+        .slice()
+        .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0)),
+    [data?.packages],
+  );
+
+  const visibleCount = useMemo(() => data?.packages.filter((item) => item.active).length ?? 0, [data?.packages]);
+  const startingPrice = useMemo(() => {
+    const prices = (data?.packages ?? []).filter((item) => item.active).map((item) => Number(item.price));
+    return prices.length ? Math.min(...prices) : 0;
+  }, [data?.packages]);
+
+  if (isLoading || !data) {
+    return (
+      <AppShell>
+        <PageHeader eyebrow="Pricing" title="Packages & Pricing" />
+        <LoadingGrid rows={5} />
+      </AppShell>
+    );
+  }
 
   function requireStaff() {
     if (email) return true;
@@ -123,12 +271,42 @@ function PackagesPage() {
     setOpen(true);
   }
 
+  function startDuplicate(item: PackageRow) {
+    if (!requireStaff()) return;
+    setEditingId(null);
+    setForm({
+      code: item.product_type === "group_package" ? "" : item.code ?? "",
+      product_type: item.product_type,
+      name: `${item.name} Copy`,
+      price: String(item.price),
+      print_size: item.print_size,
+      quantity: String(item.quantity),
+      framed: item.framed,
+      digital_copy: item.digital_copy,
+      description: item.description ?? "",
+      active: false,
+    });
+    setOpen(true);
+    toast.message("Duplicate prepared", { description: "Review the name, code and price before saving." });
+  }
+
   async function save() {
     if (!requireStaff() || !data.event) return;
     const price = Number(form.price);
     const quantity = Math.max(1, Number(form.quantity) || 1);
+
     if (!form.name.trim()) return toast.error("Product name is required.");
     if (!Number.isFinite(price) || price < 0) return toast.error("Enter a valid price.");
+
+    if (form.product_type === "group_package" && form.code.trim()) {
+      const duplicateCode = data.packages.find(
+        (item) =>
+          item.id !== editingId &&
+          item.product_type === "group_package" &&
+          item.code?.trim().toLowerCase() === form.code.trim().toLowerCase(),
+      );
+      if (duplicateCode) return toast.error(`${form.code.trim()} is already used by another class package.`);
+    }
 
     setSaving(true);
     try {
@@ -144,15 +322,20 @@ function PackagesPage() {
         digital_copy: form.digital_copy,
         description: form.description.trim() || null,
         active: form.active,
-        sort_order: editingId ? data.packages.find((item) => item.id === editingId)?.sort_order ?? data.packages.length : data.packages.length + 1,
+        sort_order: editingId
+          ? data.packages.find((item) => item.id === editingId)?.sort_order ?? data.packages.length
+          : data.packages.length + 1,
       };
+
       const query = supabase.from("packages");
       const result = await withTimeout(
         editingId ? query.update(payload as never).eq("id", editingId) : query.insert(payload as never),
         12_000,
         "Product save timed out. Please try again.",
       );
+
       if (result.error) throw result.error;
+
       toast.success(editingId ? "Product updated" : "Product created");
       setOpen(false);
       setEditingId(null);
@@ -166,17 +349,52 @@ function PackagesPage() {
 
   async function loadDefaults() {
     if (!requireStaff() || !data.event) return;
-    if (data.packages.length && !confirm("This event already has products. Add the PSS default set as additional products?")) return;
+
+    const missing = PSS_DEFAULTS.filter((item) => {
+      if (item.code) {
+        return !data.packages.some(
+          (existing) =>
+            existing.product_type === item.product_type &&
+            existing.code?.toLowerCase() === item.code.toLowerCase(),
+        );
+      }
+
+      return !data.packages.some(
+        (existing) =>
+          existing.product_type === item.product_type &&
+          existing.name.trim().toLowerCase() === item.name.toLowerCase(),
+      );
+    });
+
+    if (!missing.length) {
+      toast.success("PSS defaults are already loaded");
+      return;
+    }
+
     setLoadingDefaults(true);
     try {
-      const rows = PSS_DEFAULTS.map((item, index) => ({ ...item, event_id: data.event!.id, digital_copy: false, active: true, sort_order: data.packages.length + index + 1 }));
+      const rows = missing.map((item, index) => ({
+        ...item,
+        event_id: data.event!.id,
+        digital_copy: false,
+        active: true,
+        sort_order: data.packages.length + index + 1,
+      }));
+
       const { error } = await withTimeout(
         supabase.from("packages").insert(rows as never),
         12_000,
         "Adding the default packages took too long.",
       );
+
       if (error) throw error;
-      toast.success("PSS default class packages and solo add-ons added");
+
+      toast.success(
+        missing.length === PSS_DEFAULTS.length
+          ? "PSS default packages added"
+          : `${missing.length} missing PSS default${missing.length === 1 ? "" : "s"} added`,
+      );
+
       await withTimeout(refetch(), 12_000, "Package action completed, but refresh took too long.");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Defaults could not be added.");
@@ -187,25 +405,31 @@ function PackagesPage() {
 
   async function toggle(item: PackageRow) {
     if (!requireStaff()) return;
+
     const { error } = await withTimeout(
       supabase.from("packages").update({ active: !item.active }).eq("id", item.id),
       12_000,
       "Package status update timed out.",
     );
+
     if (error) return toast.error(error.message);
+
     await withTimeout(refetch(), 12_000, "Package action completed, but refresh took too long.");
-    toast.success(item.active ? "Hidden from client checkout" : "Product is active");
+    toast.success(item.active ? "Hidden from client checkout" : "Product is now visible to clients");
   }
 
   async function remove(item: PackageRow) {
     if (!requireStaff()) return;
     if (!confirm(`Delete “${item.name}”? Existing orders may prevent deletion.`)) return;
+
     const { error } = await withTimeout(
       supabase.from("packages").delete().eq("id", item.id),
       12_000,
       "Package delete timed out.",
     );
+
     if (error) return toast.error(error.message);
+
     toast.success("Product deleted");
     await withTimeout(refetch(), 12_000, "Package action completed, but refresh took too long.");
   }
@@ -215,38 +439,275 @@ function PackagesPage() {
       <PageHeader
         eyebrow={data.event?.name ?? "Pricing"}
         title="Packages & Pricing"
-        description="Class/group photo is the primary product. Solo portraits are optional add-ons after the client chooses themself."
-        actions={<div className="flex flex-wrap gap-2"><Button variant="outline" onClick={() => void loadDefaults()} disabled={loadingDefaults}><Sparkles className="size-4" /> {loadingDefaults ? "Adding…" : "Load PSS defaults"}</Button><Button onClick={() => startNew("group_package")}><Plus className="size-4" /> Class package</Button></div>}
+        description="Build the exact lineup clients see during ordering. Class/group packages stay primary; solo portraits remain optional add-ons."
+        actions={
+          <div className="flex flex-wrap gap-2">
+            <Button variant="outline" onClick={() => void loadDefaults()} disabled={loadingDefaults}>
+              <Sparkles className="size-4" />
+              {loadingDefaults ? "Checking…" : "Load PSS defaults"}
+            </Button>
+            <Button onClick={() => startNew("group_package")}>
+              <Plus className="size-4" /> Class package
+            </Button>
+          </div>
+        }
       />
 
-      {!data.event ? <EmptyState title="Select an event first" description="Every package belongs to an event." action={<Button asChild><Link to="/events">Open Events</Link></Button>} /> : (
+      {!data.event ? (
+        <EmptyState
+          title="Select an event first"
+          description="Every package belongs to an event."
+          action={
+            <Button asChild>
+              <Link to="/events">Open Events</Link>
+            </Button>
+          }
+        />
+      ) : (
         <>
+          <section className="mb-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            <SummaryCard
+              icon={Images}
+              label="Class packages"
+              value={String(groupPackages.length)}
+              note={`${groupPackages.filter((item) => item.active).length} visible to clients`}
+            />
+            <SummaryCard
+              icon={Image}
+              label="Solo add-ons"
+              value={String(soloAddons.length)}
+              note={`${soloAddons.filter((item) => item.active).length} available after photo selection`}
+            />
+            <SummaryCard
+              icon={PackageCheck}
+              label="Client-visible"
+              value={String(visibleCount)}
+              note={`${data.packages.length - visibleCount} hidden product${data.packages.length - visibleCount === 1 ? "" : "s"}`}
+            />
+            <SummaryCard
+              icon={PackagePlus}
+              label="Starting price"
+              value={startingPrice ? peso(startingPrice) : "—"}
+              note="Lowest active product price in this event"
+            />
+          </section>
+
           {open ? (
-            <Panel className="mb-6" title={editingId ? "Edit product" : form.product_type === "group_package" ? "New class/group package" : "New solo add-on"}>
-              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-                <Field label="Product type"><select className="h-10 rounded-md border border-input bg-background px-3 text-sm" value={form.product_type} onChange={(event) => setForm({ ...form, product_type: event.target.value as PackageProductType })}><option value="group_package">Class / group package</option><option value="solo_addon">Solo portrait add-on</option></select></Field>
-                <Field label="Code"><Input value={form.code} onChange={(event) => setForm({ ...form, code: event.target.value })} placeholder={form.product_type === "group_package" ? "P1" : "Optional"} /></Field>
-                <div className="lg:col-span-2"><Field label="Product name"><Input value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} placeholder={form.product_type === "group_package" ? "Class Photo · Framed" : "Solo 5R + Frame"} /></Field></div>
-                <Field label="Price"><Input type="number" min="0" value={form.price} onChange={(event) => setForm({ ...form, price: event.target.value })} placeholder="550" /></Field>
-                <Field label="Print size"><Input value={form.print_size} onChange={(event) => setForm({ ...form, print_size: event.target.value })} placeholder="8R / 8×10" /></Field>
-                <Field label="Prints per product"><Input type="number" min="1" value={form.quantity} onChange={(event) => setForm({ ...form, quantity: event.target.value })} /></Field>
-                <label className="flex items-center gap-2 pt-6 text-sm"><Checkbox checked={form.framed} onCheckedChange={(checked) => setForm({ ...form, framed: checked === true })} /> Black frame</label>
-                <label className="flex items-center gap-2 pt-6 text-sm"><Checkbox checked={form.digital_copy} onCheckedChange={(checked) => setForm({ ...form, digital_copy: checked === true })} /> Digital copy included</label>
-                <label className="flex items-center gap-2 pt-6 text-sm"><Checkbox checked={form.active} onCheckedChange={(checked) => setForm({ ...form, active: checked === true })} /> Visible to clients</label>
-                <div className="md:col-span-2 lg:col-span-4"><Field label="Description"><Textarea rows={3} value={form.description} onChange={(event) => setForm({ ...form, description: event.target.value })} /></Field></div>
+            <Panel
+              className="mb-7 border-primary/20 bg-card/85"
+              title={editingId ? "Edit product" : form.product_type === "group_package" ? "New class/group package" : "New solo add-on"}
+              description={editingId ? "Changes update this event’s client-facing package catalog." : "Create the product, review visibility, then save it to this event."}
+            >
+              <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_260px]">
+                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+                  <Field label="Product type">
+                    <select
+                      className="h-10 rounded-md border border-input bg-background px-3 text-sm"
+                      value={form.product_type}
+                      onChange={(event) => setForm({ ...form, product_type: event.target.value as PackageProductType })}
+                    >
+                      <option value="group_package">Class / group package</option>
+                      <option value="solo_addon">Solo portrait add-on</option>
+                    </select>
+                  </Field>
+
+                  <Field label="Code" hint={form.product_type === "group_package" ? "P1, P2, P3…" : "optional"}>
+                    <Input
+                      value={form.code}
+                      onChange={(event) => setForm({ ...form, code: event.target.value })}
+                      placeholder={form.product_type === "group_package" ? "P1" : "Optional"}
+                    />
+                  </Field>
+
+                  <div className="lg:col-span-2">
+                    <Field label="Product name">
+                      <Input
+                        value={form.name}
+                        onChange={(event) => setForm({ ...form, name: event.target.value })}
+                        placeholder={form.product_type === "group_package" ? "Class Photo · Framed" : "Solo 5R + Frame"}
+                      />
+                    </Field>
+                  </div>
+
+                  <Field label="Price">
+                    <Input
+                      type="number"
+                      min="0"
+                      value={form.price}
+                      onChange={(event) => setForm({ ...form, price: event.target.value })}
+                      placeholder="550"
+                    />
+                  </Field>
+
+                  <Field label="Print size">
+                    <Input
+                      value={form.print_size}
+                      onChange={(event) => setForm({ ...form, print_size: event.target.value })}
+                      placeholder="8R / 8×10"
+                    />
+                  </Field>
+
+                  <Field label="Prints per product">
+                    <Input
+                      type="number"
+                      min="1"
+                      value={form.quantity}
+                      onChange={(event) => setForm({ ...form, quantity: event.target.value })}
+                    />
+                  </Field>
+
+                  <div className="grid gap-2 rounded-lg border border-border bg-background/35 p-3">
+                    <label className="flex items-center gap-2 text-sm">
+                      <Checkbox
+                        checked={form.framed}
+                        onCheckedChange={(checked) => setForm({ ...form, framed: checked === true })}
+                      />
+                      Framed product
+                    </label>
+                    <label className="flex items-center gap-2 text-sm">
+                      <Checkbox
+                        checked={form.digital_copy}
+                        onCheckedChange={(checked) => setForm({ ...form, digital_copy: checked === true })}
+                      />
+                      Digital copy included
+                    </label>
+                    <label className="flex items-center gap-2 text-sm">
+                      <Checkbox
+                        checked={form.active}
+                        onCheckedChange={(checked) => setForm({ ...form, active: checked === true })}
+                      />
+                      Visible to clients
+                    </label>
+                  </div>
+
+                  <div className="md:col-span-2 lg:col-span-4">
+                    <Field label="Description" hint="Shown under the product name">
+                      <Textarea
+                        rows={3}
+                        value={form.description}
+                        onChange={(event) => setForm({ ...form, description: event.target.value })}
+                        placeholder="Briefly explain what is included."
+                      />
+                    </Field>
+                  </div>
+                </div>
+
+                <aside className="rounded-lg border border-border bg-background/35 p-4">
+                  <p className="eyebrow">Client preview</p>
+                  <div className="mt-3 rounded-lg border border-border bg-card/80 p-4">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="rounded border border-primary/20 bg-primary/5 px-2 py-1 font-mono text-[0.62rem] font-bold text-primary">
+                        {form.code.trim() || (form.product_type === "group_package" ? "PACKAGE" : "ADD-ON")}
+                      </span>
+                      <StatusPill label={form.active ? "Client visible" : "Hidden"} tone={form.active ? "success" : "neutral"} />
+                    </div>
+                    <p className="mt-3 font-display text-sm font-extrabold">{form.name.trim() || "Product name"}</p>
+                    <p className="mt-1 text-[0.68rem] leading-relaxed text-muted-foreground">
+                      {form.description.trim() || "Product description will appear here."}
+                    </p>
+                    <p className="mt-4 font-display text-3xl font-extrabold">{form.price ? peso(Number(form.price) || 0) : "₱—"}</p>
+                    <p className="mt-1 text-[0.66rem] text-muted-foreground">
+                      {form.quantity || "1"} × {form.print_size || "Print size"} · {form.framed ? "Framed" : "Print only"}
+                    </p>
+                  </div>
+                  <p className="mt-3 text-[0.67rem] leading-relaxed text-muted-foreground">
+                    This preview helps you catch confusing names, duplicate codes, or wrong visibility before saving.
+                  </p>
+                </aside>
               </div>
-              <div className="mt-5 flex gap-2"><Button onClick={() => void save()} disabled={saving}><Check className="size-4" /> {saving ? "Saving…" : "Save product"}</Button><Button variant="ghost" onClick={() => setOpen(false)}>Cancel</Button></div>
+
+              <div className="mt-5 flex flex-wrap gap-2 border-t border-border pt-4">
+                <Button onClick={() => void save()} disabled={saving}>
+                  <Check className="size-4" /> {saving ? "Saving…" : editingId ? "Save changes" : "Create product"}
+                </Button>
+                <Button
+                  variant="ghost"
+                  onClick={() => {
+                    setOpen(false);
+                    setEditingId(null);
+                  }}
+                >
+                  Cancel
+                </Button>
+              </div>
             </Panel>
           ) : null}
 
           <section>
-            <div className="mb-3 flex items-end justify-between gap-3"><div><p className="eyebrow">Primary product</p><h2 className="mt-1 font-display text-2xl font-extrabold">Class / Group Packages</h2><p className="mt-1 text-sm text-muted-foreground">P1, P2, P3 and future packages use the official class/group photo matched to the client’s class.</p></div><Button size="sm" variant="outline" onClick={() => startNew("group_package")}><PackagePlus className="size-4" /> Add</Button></div>
-            {groupPackages.length ? <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">{groupPackages.map((item) => <ProductCard key={item.id} item={item} onEdit={() => startEdit(item)} onToggle={() => void toggle(item)} onRemove={() => void remove(item)} />)}</div> : <EmptyState title="No class packages yet" description="Load the PSS defaults or add P1/P2/P3 manually." />}
+            <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+              <div>
+                <div className="flex items-center gap-2">
+                  <p className="eyebrow">Primary product</p>
+                  <span className="rounded-full border border-border px-2 py-0.5 text-[0.6rem] text-muted-foreground">
+                    {groupPackages.length}
+                  </span>
+                </div>
+                <h2 className="mt-1 font-display text-2xl font-extrabold tracking-[-0.04em]">Class / Group Packages</h2>
+                <p className="mt-1 max-w-3xl text-sm leading-relaxed text-muted-foreground">
+                  These are the main products. Each package uses the official class/group photo matched to the client’s class.
+                </p>
+              </div>
+              <Button size="sm" variant="outline" onClick={() => startNew("group_package")}>
+                <PackagePlus className="size-4" /> Add class package
+              </Button>
+            </div>
+
+            {groupPackages.length ? (
+              <div className="grid gap-4 md:grid-cols-2 2xl:grid-cols-3">
+                {groupPackages.map((item) => (
+                  <ProductCard
+                    key={item.id}
+                    item={item}
+                    onEdit={() => startEdit(item)}
+                    onDuplicate={() => startDuplicate(item)}
+                    onToggle={() => void toggle(item)}
+                    onRemove={() => void remove(item)}
+                  />
+                ))}
+              </div>
+            ) : (
+              <EmptyState title="No class packages yet" description="Load the PSS defaults or create your first class package." />
+            )}
           </section>
 
-          <section className="mt-8 border-t border-border pt-7">
-            <div className="mb-3 flex items-end justify-between gap-3"><div><p className="eyebrow">Optional</p><h2 className="mt-1 font-display text-2xl font-extrabold">Solo Portrait Add-ons</h2><p className="mt-1 text-sm text-muted-foreground">These use the client’s selected solo portrait and are added on top of the class package.</p></div><Button size="sm" variant="outline" onClick={() => startNew("solo_addon")}><Plus className="size-4" /> Solo add-on</Button></div>
-            {soloAddons.length ? <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">{soloAddons.map((item) => <ProductCard key={item.id} item={item} onEdit={() => startEdit(item)} onToggle={() => void toggle(item)} onRemove={() => void remove(item)} />)}</div> : <EmptyState title="No solo add-ons yet" description="Solo add-ons are optional. Clients can order only the class package if they prefer." />}
+          <section className="mt-9 border-t border-border pt-8">
+            <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+              <div>
+                <div className="flex items-center gap-2">
+                  <p className="eyebrow">Optional</p>
+                  <span className="rounded-full border border-border px-2 py-0.5 text-[0.6rem] text-muted-foreground">
+                    {soloAddons.length}
+                  </span>
+                </div>
+                <h2 className="mt-1 font-display text-2xl font-extrabold tracking-[-0.04em]">Solo Portrait Add-ons</h2>
+                <p className="mt-1 max-w-3xl text-sm leading-relaxed text-muted-foreground">
+                  These use the client’s selected solo portrait and are added after a class/group package is chosen.
+                </p>
+              </div>
+              <Button size="sm" variant="outline" onClick={() => startNew("solo_addon")}>
+                <Plus className="size-4" /> Add solo add-on
+              </Button>
+            </div>
+
+            {soloAddons.length ? (
+              <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
+                {soloAddons.map((item) => (
+                  <ProductCard
+                    key={item.id}
+                    item={item}
+                    onEdit={() => startEdit(item)}
+                    onDuplicate={() => startDuplicate(item)}
+                    onToggle={() => void toggle(item)}
+                    onRemove={() => void remove(item)}
+                  />
+                ))}
+              </div>
+            ) : (
+              <EmptyState
+                title="No solo add-ons yet"
+                description="Solo add-ons are optional. Clients can still order only a class/group package."
+              />
+            )}
           </section>
         </>
       )}

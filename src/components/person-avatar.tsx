@@ -12,6 +12,13 @@ const sizeClass: Record<Size, string> = {
   xl: "size-24 text-lg",
 };
 
+const imageStyle: Record<Size, React.CSSProperties> = {
+  sm: { objectPosition: "50% 30%", transform: "scale(1.22)", transformOrigin: "50% 30%" },
+  md: { objectPosition: "50% 31%", transform: "scale(1.28)", transformOrigin: "50% 31%" },
+  lg: { objectPosition: "50% 32%", transform: "scale(1.36)", transformOrigin: "50% 32%" },
+  xl: { objectPosition: "50% 39%", transform: "scale(1.36)", transformOrigin: "50% 39%" },
+};
+
 function initials(name?: string | null) {
   const parts = (name ?? "").trim().split(/\s+/).filter(Boolean);
   if (!parts.length) return "";
@@ -45,8 +52,8 @@ export function PersonAvatar({
           alt={label}
           loading="lazy"
           decoding="async"
-          className="h-full w-full scale-[1.16] object-cover"
-          style={{ objectPosition: "50% 24%" }}
+          className="h-full w-full object-cover"
+          style={imageStyle[size]}
         />
       ) : (
         <div className="grid h-full w-full place-items-center font-bold text-muted-foreground">

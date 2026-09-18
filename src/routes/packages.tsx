@@ -46,10 +46,10 @@ const emptyForm = (type: PackageProductType): PackageForm => ({
 
 const PSS_DEFAULTS = [
   { code: "P1", product_type: "group_package", name: "Class Photo · Print", price: 150, print_size: "8R / 8×10", quantity: 1, framed: false, description: "Official class/group photo · print only" },
-  { code: "P2", product_type: "group_package", name: "Class Photo · Framed", price: 550, print_size: "8R / 8×10", quantity: 1, framed: true, description: "Official class/group photo in black frame" },
-  { code: "P3", product_type: "group_package", name: "Class Photo · Large Framed", price: 750, print_size: "11R / 11×14", quantity: 1, framed: true, description: "Large official class/group photo in black frame" },
+  { code: "P2", product_type: "group_package", name: "Class Photo · Framed", price: 550, print_size: "8R / 8×10", quantity: 1, framed: true, description: "Official class/group photo with frame + white mat" },
+  { code: "P3", product_type: "group_package", name: "Class Photo · Large Framed", price: 750, print_size: "11R / 11×14", quantity: 1, framed: true, description: "Large official class/group photo with frame + white mat" },
   { code: null, product_type: "solo_addon", name: "Solo 5R Print", price: 60, print_size: "5R", quantity: 1, framed: false, description: "Optional solo portrait print" },
-  { code: null, product_type: "solo_addon", name: "Solo 5R + Frame", price: 270, print_size: "5R", quantity: 1, framed: true, description: "Optional solo portrait in black frame" },
+  { code: null, product_type: "solo_addon", name: "Solo 5R + Frame", price: 270, print_size: "5R", quantity: 1, framed: true, description: "Optional solo portrait with frame + white mat" },
   { code: null, product_type: "solo_addon", name: "Solo 12×16 + Frame", price: 950, print_size: "12×16", quantity: 1, framed: true, description: "Optional large solo portrait in black frame" },
 ] as const;
 
@@ -63,7 +63,7 @@ function ProductCard({ item, onEdit, onToggle, onRemove }: { item: PackageRow; o
       <div className="flex items-start justify-between gap-3">
         <div>
           <p className="font-display text-3xl font-extrabold">{peso(item.price)}</p>
-          <p className="mt-2 text-sm text-muted-foreground">{item.quantity} × {item.print_size}{item.framed ? " · Black frame" : " · Print only"}</p>
+          <p className="mt-2 text-sm text-muted-foreground">{item.quantity} × {item.print_size}{item.framed ? " · Black / White / Brown frame · White mat" : " · Print only"}</p>
         </div>
         <StatusPill label={item.active ? "Client visible" : "Hidden"} tone={item.active ? "success" : "neutral"} />
       </div>

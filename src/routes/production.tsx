@@ -1,10 +1,11 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { Check, FileImage, Image as ImageIcon, UsersRound } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { toast } from "sonner";
 
 import { AppShell } from "@/components/app-shell";
 import { EmptyState, LoadingGrid, PageHeader, Panel } from "@/components/page";
+import { PeopleAvatars } from "@/components/person-avatar";
 import { StatusPill } from "@/components/status-pill";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -27,19 +28,6 @@ function ProductionPage() {
   const email = useSession();
   const navigate = useNavigate();
   const [busyOrder, setBusyOrder] = useState<string | null>(null);
-  const [photoUrls, setPhotoUrls] = useState<Record<string, string>>({});
-
-  useEffect(() => {
-    if (!data?.photos.length || !email) return;
-    let active = true;
-    void Promise.all(data.photos.map(async (photo) => {
-      if (!photo.storage_path) return [photo.id, photo.url] as const;
-      const { data: signed, error } = await supabase.storage.from("event-photos")
-        .createSignedUrl(photo.storage_path, 15 * 60, { transform: { width: 600, quality: 75 } });
-      return [photo.id, error ? "" : signed?.signedUrl ?? ""] as const;
-    })).then((entries) => { if (active) setPhotoUrls(Object.fromEntries(entries)); });
-    return () => { active = false; };
-  }, [data?.photos, email]);
 
   if (isLoading || !data) return <AppShell><PageHeader eyebrow="Production" title="Production & QC" /><LoadingGrid rows={6} /></AppShell>;
 
@@ -110,6 +98,12 @@ function ProductionPage() {
         <div className="grid gap-4">
           {orders.map((order) => {
             const participant = findParticipant(data, order.participant_id);
+            const members = data.orderMembers
+              .filter((member) => member.order_id === order.id)
+              .map((member) => findParticipant(data, member.participant_id))
+              .filter(Boolean);
+            const displayPeople = members.length ? members : [participant];
+            const memberNames = members.map((member) => member!.full_name);
             const items = data.orderItems.filter((item) => item.order_id === order.id);
             const expected = checklistFor(order.production_status);
             const check = data.checks.find((item) => item.order_id === order.id && item.stage === order.production_status);
@@ -118,14 +112,21 @@ function ProductionPage() {
             const isBusy = busyOrder === order.id;
 
             return (
-              <Panel key={order.id} title={participant?.full_name ?? order.order_number} description={`${order.order_number} · ${participant?.batch ?? "Class/group not set"}`} actions={<div className="flex gap-2"><StatusPill label={order.payment_status} tone={paymentTone(order.payment_status)} /><StatusPill label={order.production_status} tone={productionTone(order.production_status)} /></div>}>
+              <Panel key={order.id} title={participant?.full_name ?? order.order_number} description={`${order.order_number} · ${memberNames.length > 1 ? `${memberNames.length} people · ${memberNames.join(", ")}` : participant?.batch ?? "Class/group not set"}`} actions={<div className="flex gap-2"><StatusPill label={order.payment_status} tone={paymentTone(order.payment_status)} /><StatusPill label={order.production_status} tone={productionTone(order.production_status)} /></div>}>
+                <div className="mb-4 flex items-center gap-3 rounded-lg border border-border bg-muted/10 p-3">
+                  <PeopleAvatars people={displayPeople} size="lg" />
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-semibold">{memberNames.length > 1 ? memberNames.join(" · ") : participant?.full_name ?? "Participant"}</p>
+                    <p className="mt-0.5 truncate text-xs text-muted-foreground">{participant?.organization ?? "No congregation"} · {participant?.contact_number ?? "No contact"}</p>
+                  </div>
+                </div>
                 <div className="grid gap-5 xl:grid-cols-[1fr_330px]">
                   <div>
                     <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                       {items.map((item) => {
                         const photo = findPhoto(data, item.photo_id);
                         const isGroup = item.kind === "group_package";
-                        return <div key={item.id} className="overflow-hidden rounded-lg border border-border bg-muted/10"><div className="relative">{photo ? <img src={photoUrls[photo.id] ?? ""} alt={item.label} className={isGroup ? "aspect-[4/3] w-full object-cover" : "aspect-[3/4] w-full object-cover"} /> : <div className={isGroup ? "grid aspect-[4/3] place-items-center bg-muted" : "grid aspect-[3/4] place-items-center bg-muted"}><FileImage className="size-7 text-muted-foreground" /></div>}<span className="absolute left-2 top-2 flex items-center gap-1 rounded-md bg-black/75 px-2 py-1 text-[0.58rem] font-bold uppercase tracking-[.1em] text-white">{isGroup ? <UsersRound className="size-3" /> : <ImageIcon className="size-3" />}{isGroup ? "Class" : "Solo"}</span></div><div className="p-3"><p className="text-sm font-semibold">{item.label}</p><p className="mt-1 text-xs text-muted-foreground">{item.quantity} × {item.print_size ?? "Print"}{item.framed ? " · Frame" : " · Print only"}</p>{isGroup && !photo ? <p className="mt-2 text-xs text-warning">Official group photo not matched yet. Check the client class/group label.</p> : null}</div></div>;
+                        return <div key={item.id} className="overflow-hidden rounded-lg border border-border bg-muted/10"><div className="relative">{photo ? <img src={photo.url} alt={item.label} className={isGroup ? "aspect-[4/3] w-full object-cover" : "aspect-[3/4] w-full object-cover"} /> : <div className={isGroup ? "grid aspect-[4/3] place-items-center bg-muted" : "grid aspect-[3/4] place-items-center bg-muted"}><FileImage className="size-7 text-muted-foreground" /></div>}<span className="absolute left-2 top-2 flex items-center gap-1 rounded-md bg-black/75 px-2 py-1 text-[0.58rem] font-bold uppercase tracking-[.1em] text-white">{isGroup ? <UsersRound className="size-3" /> : <ImageIcon className="size-3" />}{isGroup ? "Class" : "Solo"}</span></div><div className="p-3"><p className="text-sm font-semibold">{item.label}</p><p className="mt-1 text-xs text-muted-foreground">{item.quantity} × {item.print_size ?? "Print"}{item.framed ? ` · ${item.frame_color ? item.frame_color[0].toUpperCase() + item.frame_color.slice(1) : "Black"} frame · White mat` : " · Print only"}</p>{isGroup && !photo ? <p className="mt-2 text-xs text-warning">Official group photo not matched yet. Check the client class/group label.</p> : null}</div></div>;
                       })}
                     </div>
 

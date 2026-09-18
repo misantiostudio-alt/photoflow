@@ -19,9 +19,9 @@ import {
   Sun,
   Truck,
   Users,
+  WalletCards,
 } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
-import { toast } from "sonner";
 
 import {
   CommandDialog,
@@ -34,7 +34,6 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
-import { supabase } from "@/integrations/supabase/client";
 import { useOps, useSession } from "@/lib/data";
 import { withTimeout } from "@/lib/async";
 import { cn } from "@/lib/utils";
@@ -50,6 +49,7 @@ const PRIMARY_NAV = [
 
 const SECONDARY_NAV = [
   { to: "/packages", label: "Packages & Pricing", icon: Boxes },
+  { to: "/finance", label: "Finance", icon: WalletCards },
   { to: "/reports", label: "Reports", icon: BarChart3 },
   { to: "/settings", label: "Settings", icon: Settings },
 ] as const;
@@ -328,7 +328,7 @@ export function AppShell({ children }: { children: ReactNode }) {
               maxLength={6}
               type="password"
               value={pinValue}
-              onChange={(event) => setPinValue(event.target.value.replace(/\D/g, "").slice(0, 6))}
+              onChange={(event) => setPinValue(event.target.value.replace(/\\D/g, "").slice(0, 6))}
               onKeyDown={(event) => event.key === "Enter" && void unlockWithPin()}
               placeholder="••••••"
             />

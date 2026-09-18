@@ -99,20 +99,20 @@ export async function createIdentityThumbnail(
 
     if (face && face.width > 0 && face.height > 0) {
       cropSize = clamp(
-        Math.max(face.width * 3.6, face.height * 3.8),
-        minDim * 0.38,
-        minDim * 0.74,
+        Math.max(face.width * 3.0, face.height * 3.2),
+        minDim * 0.34,
+        minDim * 0.66,
       );
       centerX = face.x + face.width / 2;
-      // Shift down slightly so shoulders/chest stay in the identity crop.
-      centerY = face.y + face.height / 2 + face.height * 0.8;
+      // Keep the face dominant while still retaining shoulders / upper chest.
+      centerY = face.y + face.height / 2 + face.height * 0.62;
     } else {
-      // Reliable portrait fallback: tighter upper-center crop.
-      cropSize = minDim * 0.78;
+      // Portrait fallback: favor a closer upper-body/headshot crop.
+      cropSize = minDim * 0.70;
       centerX = bitmap.width / 2;
       centerY = Math.min(
         bitmap.height - cropSize / 2,
-        bitmap.height * 0.30,
+        bitmap.height * 0.28,
       );
     }
 

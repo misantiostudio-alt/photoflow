@@ -26,7 +26,7 @@ import { Route as ReleaseRouteImport } from './routes/release'
 import { Route as ReportsRouteImport } from './routes/reports'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as ShootingRouteImport } from './routes/shooting'
-import { Route as GallerySlugRouteImport } from './routes/gallery/$slug'
+import { Route as GSlugRouteImport } from './routes/g.$slug'
 import { Route as OrderTokenRouteImport } from './routes/order/$token'
 
 const IndexRoute = IndexRouteImport.update({
@@ -114,10 +114,10 @@ const ShootingRoute = ShootingRouteImport.update({
   path: '/shooting',
   getParentRoute: () => rootRouteImport,
 } as any)
-const GallerySlugRoute = GallerySlugRouteImport.update({
-  id: '/$slug',
-  path: '/$slug',
-  getParentRoute: () => GalleryRoute,
+const GSlugRoute = GSlugRouteImport.update({
+  id: '/g/$slug',
+  path: '/g/$slug',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const OrderTokenRoute = OrderTokenRouteImport.update({
   id: '/order/$token',
@@ -132,7 +132,7 @@ export interface FileRoutesByFullPath {
   '/delivery': typeof DeliveryRoute
   '/events': typeof EventsRoute
   '/framing': typeof FramingRoute
-  '/gallery': typeof GalleryRouteWithChildren
+  '/gallery': typeof GalleryRoute
   '/orders': typeof OrdersRoute
   '/packages': typeof PackagesRoute
   '/participants': typeof ParticipantsRoute
@@ -143,7 +143,7 @@ export interface FileRoutesByFullPath {
   '/reports': typeof ReportsRoute
   '/settings': typeof SettingsRoute
   '/shooting': typeof ShootingRoute
-  '/gallery/$slug': typeof GallerySlugRoute
+  '/g/$slug': typeof GSlugRoute
   '/order/$token': typeof OrderTokenRoute
 }
 export interface FileRoutesByTo {
@@ -153,7 +153,7 @@ export interface FileRoutesByTo {
   '/delivery': typeof DeliveryRoute
   '/events': typeof EventsRoute
   '/framing': typeof FramingRoute
-  '/gallery': typeof GalleryRouteWithChildren
+  '/gallery': typeof GalleryRoute
   '/orders': typeof OrdersRoute
   '/packages': typeof PackagesRoute
   '/participants': typeof ParticipantsRoute
@@ -164,7 +164,7 @@ export interface FileRoutesByTo {
   '/reports': typeof ReportsRoute
   '/settings': typeof SettingsRoute
   '/shooting': typeof ShootingRoute
-  '/gallery/$slug': typeof GallerySlugRoute
+  '/g/$slug': typeof GSlugRoute
   '/order/$token': typeof OrderTokenRoute
 }
 export interface FileRoutesById {
@@ -175,7 +175,7 @@ export interface FileRoutesById {
   '/delivery': typeof DeliveryRoute
   '/events': typeof EventsRoute
   '/framing': typeof FramingRoute
-  '/gallery': typeof GalleryRouteWithChildren
+  '/gallery': typeof GalleryRoute
   '/orders': typeof OrdersRoute
   '/packages': typeof PackagesRoute
   '/participants': typeof ParticipantsRoute
@@ -186,7 +186,7 @@ export interface FileRoutesById {
   '/reports': typeof ReportsRoute
   '/settings': typeof SettingsRoute
   '/shooting': typeof ShootingRoute
-  '/gallery/$slug': typeof GallerySlugRoute
+  '/g/$slug': typeof GSlugRoute
   '/order/$token': typeof OrderTokenRoute
 }
 export interface FileRouteTypes {
@@ -209,7 +209,7 @@ export interface FileRouteTypes {
     | '/reports'
     | '/settings'
     | '/shooting'
-    | '/gallery/$slug'
+    | '/g/$slug'
     | '/order/$token'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -230,7 +230,7 @@ export interface FileRouteTypes {
     | '/reports'
     | '/settings'
     | '/shooting'
-    | '/gallery/$slug'
+    | '/g/$slug'
     | '/order/$token'
   id:
     | '__root__'
@@ -251,7 +251,7 @@ export interface FileRouteTypes {
     | '/reports'
     | '/settings'
     | '/shooting'
-    | '/gallery/$slug'
+    | '/g/$slug'
     | '/order/$token'
   fileRoutesById: FileRoutesById
 }
@@ -262,7 +262,7 @@ export interface RootRouteChildren {
   DeliveryRoute: typeof DeliveryRoute
   EventsRoute: typeof EventsRoute
   FramingRoute: typeof FramingRoute
-  GalleryRoute: typeof GalleryRouteWithChildren
+  GalleryRoute: typeof GalleryRoute
   OrdersRoute: typeof OrdersRoute
   PackagesRoute: typeof PackagesRoute
   ParticipantsRoute: typeof ParticipantsRoute
@@ -273,6 +273,7 @@ export interface RootRouteChildren {
   ReportsRoute: typeof ReportsRoute
   SettingsRoute: typeof SettingsRoute
   ShootingRoute: typeof ShootingRoute
+  GSlugRoute: typeof GSlugRoute
   OrderTokenRoute: typeof OrderTokenRoute
 }
 
@@ -397,12 +398,12 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ShootingRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/gallery/$slug': {
-      id: '/gallery/$slug'
-      path: '/$slug'
-      fullPath: '/gallery/$slug'
-      preLoaderRoute: typeof GallerySlugRouteImport
-      parentRoute: typeof GalleryRoute
+    '/g/$slug': {
+      id: '/g/$slug'
+      path: '/g/$slug'
+      fullPath: '/g/$slug'
+      preLoaderRoute: typeof GSlugRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/order/$token': {
       id: '/order/$token'
@@ -414,17 +415,6 @@ declare module '@tanstack/react-router' {
   }
 }
 
-interface GalleryRouteChildren {
-  GallerySlugRoute: typeof GallerySlugRoute
-}
-
-const GalleryRouteChildren: GalleryRouteChildren = {
-  GallerySlugRoute: GallerySlugRoute,
-}
-
-const GalleryRouteWithChildren =
-  GalleryRoute._addFileChildren(GalleryRouteChildren)
-
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   SplatRoute: SplatRoute,
@@ -432,7 +422,7 @@ const rootRouteChildren: RootRouteChildren = {
   DeliveryRoute: DeliveryRoute,
   EventsRoute: EventsRoute,
   FramingRoute: FramingRoute,
-  GalleryRoute: GalleryRouteWithChildren,
+  GalleryRoute: GalleryRoute,
   OrdersRoute: OrdersRoute,
   PackagesRoute: PackagesRoute,
   ParticipantsRoute: ParticipantsRoute,
@@ -443,6 +433,7 @@ const rootRouteChildren: RootRouteChildren = {
   ReportsRoute: ReportsRoute,
   SettingsRoute: SettingsRoute,
   ShootingRoute: ShootingRoute,
+  GSlugRoute: GSlugRoute,
   OrderTokenRoute: OrderTokenRoute,
 }
 export const routeTree = rootRouteImport

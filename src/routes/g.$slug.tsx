@@ -524,6 +524,48 @@ function ClientGalleryPage() {
     return fallback;
   }
 
+  async function releaseDraftClaim() {
+    if (!identity || order) return;
+
+    setSubmitting(true);
+    try {
+      const db = supabase as any;
+      const result = await withTimeout(
+        db.rpc("release_client_claim_v1", { _resume_token: identity.resume_token }),
+        10_000,
+        "Releasing this photo is taking too long. Please try again.",
+      );
+
+      if (result.error) throw result.error;
+      if (result.data === false) {
+        throw new Error("This order has already been confirmed and can no longer be released.");
+      }
+
+      if (typeof window !== "undefined") {
+        window.localStorage.removeItem(draftKey);
+      }
+
+      draftRestoredRef.current = true;
+      setSelectedPhotoId(null);
+      setSelectedPhotoSnapshot(null);
+      setIdentity(null);
+      setPeople([]);
+      setGroupPackageId(null);
+      setGroupFrameColor("black");
+      setAddonQty({});
+      setAddonFrameColors({});
+      setClaimErrorMessage(null);
+
+      await refetch();
+      window.scrollTo({ top: 0, behavior: "smooth" });
+      toast.message("Photo released. Choose another photo.");
+    } catch (releaseError) {
+      toast.error(errorMessage(releaseError, "Could not release this photo. Please try again."));
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
   async function claimPortrait() {
     if (!data || !selectedPhoto) return;
     if (identityForm.full_name.trim().length < 2) return toast.error("Enter your full name.");
@@ -565,7 +607,7 @@ function ClientGalleryPage() {
       setSelectedPhotoSnapshot(selectedPhoto);
       setIdentity(nextIdentity);
       setPeople([{ identity: nextIdentity, photoId: selectedPhoto.id, photoUrl: selectedPhoto.url }]);
-      toast.success("Photo confirmed");
+      toast.success("Photo reserved while you finish your order");
     } catch (claimError) {
       const message = errorMessage(claimError, "Could not save your details. Please try again.");
       setClaimErrorMessage(message);
@@ -736,7 +778,7 @@ function ClientGalleryPage() {
               <div className="mt-8 grid grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
                 {availableSoloPhotos.map((photo) => (
                   <button key={photo.id} type="button" onClick={() => setSelectedPhotoId(photo.id)} className="group overflow-hidden rounded-lg border border-border bg-card transition hover:border-primary/40">
-                    <img src={photo.thumbnail_url || photo.url} alt="Event portrait" loading="lazy" decoding="async" className="aspect-[3/4] w-full object-cover transition-transform duration-300 group-hover:scale-[1.02]" />
+                    <img src={photo.thumbnail_url || photo.url} alt="Event portrait" loading="lazy" decoding="async" className="aspect-[3/4] w-full scale-[1.34] object-cover object-[50%_24%] transition-transform duration-300 group-hover:scale-[1.40]" />
                     <div className="p-2 text-left"><p className="text-xs font-semibold">This is me</p><p className="mt-0.5 truncate text-[0.62rem] text-muted-foreground">Choose to continue</p></div>
                   </button>
                 ))}
@@ -854,16 +896,25 @@ function ClientGalleryPage() {
           </section>
         ) : (
           <section>
+            <button
+              type="button"
+              onClick={() => void releaseDraftClaim()}
+              disabled={submitting}
+              className="mb-5 inline-flex items-center gap-2 rounded-lg border border-border bg-card px-3 py-2 text-sm font-medium text-muted-foreground transition hover:border-primary/30 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <ArrowLeft className="size-4" />
+              Back to gallery / Change photo
+            </button>
             <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
               <div><p className="eyebrow">{identity.participant_code}</p><h1 className="mt-1 font-display text-3xl font-extrabold sm:text-4xl">Hi, {identity.full_name.split(" ")[0]}.</h1><p className="mt-1 text-sm text-muted-foreground">{identity.group_name || batchName}</p></div>
-              <div className="flex items-center gap-2 rounded-lg border border-border bg-card px-3 py-2 text-xs text-muted-foreground"><UserRoundCheck className="size-4 text-primary" /> Photo reserved</div>
+              <div className="flex items-center gap-2 rounded-lg border border-border bg-card px-3 py-2 text-xs text-muted-foreground"><UserRoundCheck className="size-4 text-primary" /> Temporary reservation</div>
             </div>
 
             <div className="mt-4 flex items-start gap-3 rounded-lg border border-primary/20 bg-primary/[.035] p-3 text-xs text-muted-foreground">
               <ShieldCheck className="mt-0.5 size-4 shrink-0 text-primary" />
               <div>
                 <p className="font-semibold text-foreground">Progress saved on this device</p>
-                <p className="mt-1">If your connection drops or you refresh the page, PhotoFlow will restore this unfinished order automatically.</p>
+                <p className="mt-1">This is only a temporary reservation. It becomes a real claim only after you press Confirm order. You can still go back and choose another photo.</p>
               </div>
             </div>
 
@@ -871,13 +922,19 @@ function ClientGalleryPage() {
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <p className="eyebrow">Your photo</p>
-                  <p className="mt-1 text-sm text-muted-foreground">Your identity and order progress are saved on this device.</p>
+                  <p className="mt-1 text-sm text-muted-foreground">Your details are saved on this device while you finish the order.</p>
                 </div>
                 <p className="text-xs text-muted-foreground">Ordering for more than one person? The studio can assist you.</p>
               </div>
 
               <div className="mt-4 flex items-center gap-3 rounded-lg border border-border bg-muted/15 p-3">
-                <img src={people[0]?.photoUrl} alt={identity.full_name} className="size-14 rounded-md object-cover" />
+                <div className="size-14 shrink-0 overflow-hidden rounded-md border border-border bg-muted">
+                  <img
+                    src={people[0]?.photoUrl}
+                    alt={identity.full_name}
+                    className="h-full w-full scale-[1.36] object-cover object-[50%_24%]"
+                  />
+                </div>
                 <div className="min-w-0">
                   <p className="truncate text-sm font-semibold">{identity.full_name}</p>
                   <p className="truncate text-xs text-muted-foreground">{identity.organization || "No congregation"}</p>

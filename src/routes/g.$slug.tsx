@@ -935,10 +935,20 @@ function ClientGalleryPage() {
                     className="h-full w-full scale-[1.36] object-cover object-[50%_24%]"
                   />
                 </div>
-                <div className="min-w-0">
+                <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-semibold">{identity.full_name}</p>
                   <p className="truncate text-xs text-muted-foreground">{identity.organization || "No congregation"}</p>
                 </div>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={() => void releaseDraftClaim()}
+                  disabled={submitting}
+                  className="shrink-0"
+                >
+                  Change photo
+                </Button>
               </div>
             </section>
             <section className="mt-8">

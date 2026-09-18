@@ -4,19 +4,19 @@ import { cn } from "@/lib/utils";
 import { titleize, type Tone } from "@/lib/domain";
 
 const pill = cva(
-  "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[0.7rem] font-semibold tracking-wide whitespace-nowrap",
+  "inline-flex items-center gap-1.5 rounded-md border px-2 py-1 text-[0.62rem] font-semibold leading-none tracking-[0.015em] whitespace-nowrap",
   {
     variants: {
       tone: {
-        neutral: "border-border bg-muted text-muted-foreground",
-        success: "border-success/25 bg-success/10 text-success",
-        warning: "border-warning/35 bg-warning/15 text-warning-foreground",
-        danger: "border-destructive/25 bg-destructive/10 text-destructive",
-        info: "border-info/25 bg-info/10 text-info",
-        gold: "border-gold/40 bg-gold/15 text-gold-foreground",
+        neutral: "border-border bg-background/45 text-muted-foreground",
+        success: "border-success/25 bg-success/[0.08] text-success",
+        warning: "border-warning/30 bg-warning/[0.08] text-warning",
+        danger: "border-destructive/25 bg-destructive/[0.08] text-destructive",
+        info: "border-info/25 bg-info/[0.08] text-info",
+        gold: "border-primary/25 bg-primary/[0.07] text-primary",
       },
       size: {
-        sm: "px-2 py-0.5 text-[0.65rem]",
+        sm: "px-1.5 py-0.5 text-[0.57rem]",
         md: "",
       },
     },
@@ -24,26 +24,31 @@ const pill = cva(
   },
 );
 
+const dotMap: Record<Tone, string> = {
+  neutral: "bg-muted-foreground/60",
+  success: "bg-success",
+  warning: "bg-warning",
+  danger: "bg-destructive",
+  info: "bg-info",
+  gold: "bg-primary",
+};
+
 export function StatusPill({
   label,
   tone = "neutral",
   size,
   className,
 }: { label?: string | null; tone?: Tone } & VariantProps<typeof pill> & {
-    className?: string;
-  }) {
-  return <span className={cn(pill({ tone, size }), className)}>{titleize(label)}</span>;
+  className?: string;
+}) {
+  return (
+    <span className={cn(pill({ tone, size }), className)}>
+      <span className={cn("size-1.5 shrink-0 rounded-full", dotMap[tone ?? "neutral"])} />
+      {titleize(label)}
+    </span>
+  );
 }
 
 export function Dot({ tone = "neutral" }: { tone?: Tone }) {
-  const map: Record<Tone, string> = {
-    neutral: "bg-muted-foreground",
-    success: "bg-success",
-    warning: "bg-warning",
-    danger: "bg-destructive",
-    info: "bg-info",
-    gold: "bg-gold",
-  };
-  return <span className={cn("size-2 rounded-full", map[tone])} />;
+  return <span className={cn("size-1.5 rounded-full", dotMap[tone])} />;
 }
-

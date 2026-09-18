@@ -1,128 +1,73 @@
-import { createFileRoute, useRouterState } from "@tanstack/react-router";
-import { useMemo, useRef, useState } from "react";
-import {
-  BadgeCheck, Camera, Check, ChevronRight, CircleDollarSign, ClipboardCheck,
-  Download, FileImage, Frame, Images, PackageCheck, Plus, Printer, QrCode,
-  Search, ShieldCheck, Truck, Upload, UserPlus, Users, X,
-} from "lucide-react";
-import { toast } from "sonner";
+import { useQuery } from "@tanstack/react-query";
+import { createFileRoute, Link, Navigate, useRouterState } from "@tanstack/react-router";
+import { ArrowRight, CheckCircle2, Clock3, Images, PackageCheck, ShieldCheck, Truck } from "lucide-react";
 
 import { AppShell } from "@/components/app-shell";
-import { EmptyState, LoadingGrid, PageHeader, Panel } from "@/components/page";
-import { StatusPill } from "@/components/status-pill";
+import { EmptyState } from "@/components/page";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { Checkbox } from "@/components/ui/checkbox";
 import { supabase } from "@/integrations/supabase/client";
-import {
-  findPackage, findParticipant, findPhoto, orderBalance, participantPhotos, useOps,
-} from "@/lib/data";
-import {
-  FINAL_QC_CHECKLIST, FRAME_QC_CHECKLIST, PRINT_QC_CHECKLIST, PRODUCTION_STAGES,
-  formatDate, paymentTone, peso, productionTone, stageIndex, titleize,
-} from "@/lib/domain";
-import { cn } from "@/lib/utils";
+import { peso, titleize } from "@/lib/domain";
 
-export const Route = createFileRoute("/$")({ component: ModuleRouter });
+export const Route = createFileRoute("/$")({ component: LegacyRoute });
 
-function ModuleRouter() {
-  const path = useRouterState({ select: (s) => s.location.pathname });
-  const slug = path.split("/").filter(Boolean)[0] ?? "";
-  if (slug === "shooting") return <ShootingMode />;
-  if (slug === "gallery") return <ClientGallery />;
-  if (slug === "auth") return <AuthPage />;
-  return <AdminModule slug={slug} />;
+const LEGACY_REDIRECTS: Record<string, string> = {
+  participants: "/gallery",
+  nameplates: "/gallery",
+  intake: "/gallery",
+  shooting: "/gallery",
+  galleries: "/gallery",
+  payments: "/orders",
+  "print-queue": "/production",
+  framing: "/production",
+  delivery: "/release",
+};
+
+type PublicOrder = {
+  order_number: string;
+  client_name: string;
+  group_name: string | null;
+  total: number;
+  paid: number;
+  payment_status: string;
+  production_status: string;
+  delivered_at: string | null;
+  payment_pending: boolean;
+  pending_amount: number;
+};
+
+async function fetchPublicOrder(token: string): Promise<PublicOrder> {
+  const db = supabase as any;
+  const result = await db.rpc("get_public_order_v2", { _public_token: token });
+  if (result.error) throw result.error;
+  const row = result.data?.[0];
+  if (!row) throw new Error("Order Pass not found.");
+  return { ...row, total: Number(row.total), paid: Number(row.paid), pending_amount: Number(row.pending_amount) };
 }
 
-function AdminModule({ slug }: { slug: string }) {
-  const { data, isLoading, refetch } = useOps();
-  if (isLoading || !data) return <AppShell><LoadingGrid rows={8} /></AppShell>;
+function OrderPass({ token }: { token: string }) {
+  const { data, isLoading, error } = useQuery({ queryKey: ["order-pass", token], queryFn: () => fetchPublicOrder(token), refetchInterval: 15_000 });
+  if (isLoading) return <div className="grid min-h-screen place-items-center bg-background text-sm text-muted-foreground">Checking your Order Pass…</div>;
+  if (error || !data) return <div className="grid min-h-screen place-items-center bg-background p-6 text-center text-foreground"><div><h1 className="font-display text-3xl font-extrabold">Order Pass unavailable</h1><p className="mt-2 text-sm text-muted-foreground">{error instanceof Error ? error.message : "This order could not be found."}</p></div></div>;
 
-  const views: Record<string, React.ReactNode> = {
-    events: <EventsView data={data} />,
-    participants: <ParticipantsView data={data} refresh={refetch} />,
-    nameplates: <NameplatesView data={data} />,
-    intake: <IntakeView data={data} />,
-    galleries: <GalleriesView data={data} />,
-    orders: <OrdersView data={data} />,
-    payments: <PaymentsView data={data} refresh={refetch} />,
-    "print-queue": <ProductionList data={data} mode="print" refresh={refetch} />,
-    production: <ProductionList data={data} mode="qc" refresh={refetch} />,
-    framing: <ProductionList data={data} mode="frame" refresh={refetch} />,
-    delivery: <DeliveryView data={data} refresh={refetch} />,
-    packages: <PackagesView data={data} />,
-    reports: <ReportsView data={data} />,
-    settings: <SettingsView data={data} />,
-  };
-  return <AppShell>{views[slug] ?? <NotFound />}</AppShell>;
+  const balance = Math.max(0, data.total - data.paid);
+  const paymentLabel = data.payment_pending ? "Payment submitted · for verification" : data.payment_status === "paid" ? "Payment verified" : balance > 0 ? `May natitirang balance na ${peso(balance)}` : "Payment complete";
+  const productionLabel = data.production_status === "delivered" ? "Order received" : data.production_status === "ready" ? "Ready for pickup" : titleize(data.production_status);
+
+  return (
+    <div className="min-h-screen bg-background px-4 py-8 text-foreground sm:py-12"><div className="mx-auto max-w-xl"><div className="mb-5 flex items-center justify-between"><div><p className="font-display text-lg font-extrabold">PhotoFlow</p><p className="text-[0.6rem] uppercase tracking-[.18em] text-muted-foreground">Order Pass</p></div><div className="flex items-center gap-2 text-xs text-muted-foreground"><ShieldCheck className="size-4 text-primary" /> Live status</div></div><section className="overflow-hidden rounded-2xl border border-primary/25 bg-card"><div className="border-b border-border bg-primary/[.045] p-6"><p className="eyebrow">{data.order_number}</p><h1 className="mt-2 font-display text-3xl font-extrabold">{data.client_name}</h1><p className="mt-1 text-sm text-muted-foreground">{data.group_name || "Class/group not set"}</p></div><div className="grid gap-4 p-6 sm:grid-cols-2"><div><p className="text-xs text-muted-foreground">Order total</p><p className="mt-1 font-display text-2xl font-extrabold">{peso(data.total)}</p></div><div><p className="text-xs text-muted-foreground">Verified paid</p><p className="mt-1 font-display text-2xl font-extrabold">{peso(data.paid)}</p></div></div><div className="border-t border-border p-6"><div className="flex gap-3 rounded-xl border border-border bg-muted/15 p-4"><span className="grid size-10 shrink-0 place-items-center rounded-full bg-primary/10 text-primary">{data.payment_pending ? <Clock3 className="size-5" /> : data.payment_status === "paid" ? <CheckCircle2 className="size-5" /> : <Clock3 className="size-5" />}</span><div><p className="font-semibold">Payment</p><p className="mt-1 text-sm text-muted-foreground">{paymentLabel}</p>{data.payment_pending ? <p className="mt-1 text-xs text-muted-foreground">Submitted amount: {peso(data.pending_amount)}</p> : null}</div></div><div className="mt-3 flex gap-3 rounded-xl border border-border bg-muted/15 p-4"><span className="grid size-10 shrink-0 place-items-center rounded-full bg-primary/10 text-primary">{data.production_status === "delivered" ? <Truck className="size-5" /> : <PackageCheck className="size-5" />}</span><div><p className="font-semibold">Order status</p><p className="mt-1 text-sm text-muted-foreground">{productionLabel}</p></div></div></div></section><p className="mt-5 text-center text-xs leading-5 text-muted-foreground">Itago lang ang Order Pass/QR na ito at ipakita sa release desk kapag kukunin na ang order.</p></div></div>
+  );
 }
 
-type Data = NonNullable<ReturnType<typeof useOps>["data"]>;
+function LegacyRoute() {
+  const pathname = useRouterState({ select: (state) => state.location.pathname });
+  const parts = pathname.split("/").filter(Boolean);
+  const slug = parts[0] ?? "";
+  const target = LEGACY_REDIRECTS[slug];
+  const orderToken = slug === "order" ? parts[1] : undefined;
 
-function EventsView({ data }: { data: Data }) {
-  return <><PageHeader eyebrow="PhotoFlow" title="Events" description="Manage every school, convention, class or studio assignment." actions={<Button onClick={() => toast.info("Event creation form is ready for staff accounts.")}><Plus className="size-4"/> New event</Button>} />
-    <div className="grid gap-4 md:grid-cols-2">{data.events.map(e => <Panel key={e.id} title={e.name} description={`${e.event_type} · ${formatDate(e.event_date)}`}><div className="grid gap-3 text-sm"><Info label="Venue" value={e.venue}/><Info label="Ordering deadline" value={formatDate(e.ordering_deadline)}/><Info label="Delivery" value={formatDate(e.delivery_date)}/><div className="flex gap-2"><StatusPill label={e.status} tone="success"/><Button size="sm" variant="outline" onClick={() => navigator.clipboard.writeText(`${location.origin}/gallery/${e.slug}`).then(()=>toast.success("Gallery link copied"))}>Copy gallery link</Button></div></div></Panel>)}</div></>;
+  if (orderToken) return <OrderPass token={orderToken} />;
+
+  if (target) return <Navigate to={target} replace />;
+
+  return <AppShell><EmptyState title="Page not found" description="PhotoFlow 2.0 keeps the workflow intentionally small and focused." action={<Button asChild><Link to="/">Back to Home <ArrowRight className="size-4" /></Link></Button>} /></AppShell>;
 }
-
-function ParticipantsView({ data, refresh }: { data: Data; refresh: () => unknown }) {
-  const [q,setQ]=useState(""); const [adding,setAdding]=useState(false);
-  const [form,setForm]=useState({full_name:"",organization:"",contact_number:""});
-  const list=data.participants.filter(p=>`${p.full_name} ${p.participant_code} ${p.organization}`.toLowerCase().includes(q.toLowerCase()));
-  async function add(){ if(!form.full_name.trim()) return toast.error("Enter a participant name"); const event=data.event; if(!event)return;
-    const code=`${event.id_prefix}-${String(data.participants.length+1).padStart(3,"0")}`;
-    const {error}=await supabase.from("participants").insert({event_id:event.id,participant_code:code,...form});
-    if(error) return toast.error(error.message.includes("row-level")?"Staff sign-in is required to add participants.":error.message);
-    toast.success(`${code} added`); setForm({full_name:"",organization:"",contact_number:""}); setAdding(false); await refresh(); }
-  return <><PageHeader eyebrow={data.event?.name} title="Participants" description={`${data.participants.length} registered people with one complete record from shoot to delivery.`} actions={<Button onClick={()=>setAdding(!adding)}><UserPlus className="size-4"/> Add participant</Button>}/>
-    {adding&&<Panel title="New participant"><div className="grid gap-3 md:grid-cols-3"><Field label="Full name"><Input value={form.full_name} onChange={e=>setForm({...form,full_name:e.target.value})}/></Field><Field label="Congregation / group"><Input value={form.organization} onChange={e=>setForm({...form,organization:e.target.value})}/></Field><Field label="Contact number"><Input value={form.contact_number} onChange={e=>setForm({...form,contact_number:e.target.value})}/></Field></div><div className="mt-4 flex gap-2"><Button onClick={add}>Save participant</Button><Button variant="ghost" onClick={()=>setAdding(false)}>Cancel</Button></div></Panel>}
-    <div className="mb-4 flex items-center gap-2 rounded-xl border bg-card px-3"><Search className="size-4 text-muted-foreground"/><Input className="border-0 bg-transparent shadow-none" placeholder="Search name, ID or congregation…" value={q} onChange={e=>setQ(e.target.value)}/></div>
-    <div className="overflow-hidden rounded-xl border bg-card"><div className="hidden grid-cols-[110px_1.5fr_1fr_110px_110px] gap-3 border-b px-4 py-3 text-xs font-semibold text-muted-foreground md:grid"><span>ID</span><span>Participant</span><span>Organization</span><span>Shooting</span><span>Gallery</span></div>{list.map(p=><div key={p.id} className="grid gap-2 border-b px-4 py-3 last:border-0 md:grid-cols-[110px_1.5fr_1fr_110px_110px] md:items-center"><span className="font-mono text-xs">{p.participant_code}</span><div className="font-medium">{p.full_name}<p className="text-xs font-normal text-muted-foreground">{p.contact_number}</p></div><span className="text-sm text-muted-foreground">{p.organization}</span><StatusPill label={p.shooting_status} tone={p.shooting_status==="shot"?"success":"warning"}/><StatusPill label={p.gallery_status} tone={p.gallery_status==="ready"?"success":"neutral"}/></div>)}</div></>;
-}
-
-function NameplatesView({data}:{data:Data}){ const [selected,setSelected]=useState<string[]>(data.participants.map(p=>p.id));
-  return <><PageHeader eyebrow="QR workflow" title="Printable Nameplates" description="Photograph this card first; all following portraits can be assigned until the next separator." actions={<Button onClick={()=>window.print()}><Printer className="size-4"/> Print selected</Button>}/><div className="mb-4 flex gap-2"><Button variant="outline" size="sm" onClick={()=>setSelected(data.participants.map(p=>p.id))}>Select all</Button><Button variant="ghost" size="sm" onClick={()=>setSelected([])}>Clear</Button></div><div className="grid gap-4 sm:grid-cols-2 print:grid-cols-2">{data.participants.filter(p=>selected.includes(p.id)).map(p=><div key={p.id} className="break-inside-avoid rounded-2xl border-2 border-primary bg-white p-6 text-center text-black"><div className="mx-auto mb-4 grid size-24 place-items-center border-4 border-black"><QrCode className="size-20"/></div><p className="text-3xl font-bold">{p.full_name}</p><p className="mt-2 font-mono text-xl tracking-widest">{p.participant_code}</p><p className="mt-1 text-sm text-black/60">{p.organization}</p></div>)}</div></> }
-
-function IntakeView({data}:{data:Data}){const [files,setFiles]=useState<File[]>([]); const input=useRef<HTMLInputElement>(null);
-  return <><PageHeader eyebrow="Photo assignment" title="Photo Intake" description="Upload a full camera card, mark nameplate separators, then verify each participant batch." actions={<Button onClick={()=>input.current?.click()}><Upload className="size-4"/> Upload photos</Button>}/><input ref={input} hidden multiple accept="image/*" type="file" onChange={e=>setFiles([...files,...Array.from(e.target.files??[])])}/><button onClick={()=>input.current?.click()} className="mb-5 grid min-h-52 w-full place-items-center rounded-2xl border-2 border-dashed border-primary/30 bg-card p-8 text-center hover:border-primary"><div><Images className="mx-auto mb-3 size-10 text-primary"/><p className="font-semibold">Drop camera files here or click to browse</p><p className="text-sm text-muted-foreground">JPG, PNG or HEIC · multiple files supported</p></div></button>{files.length?<Panel title={`${files.length} files ready`} description="Local preview — upload starts after participant assignment"><div className="grid grid-cols-2 gap-3 md:grid-cols-5">{files.map((f,i)=><div key={`${f.name}-${i}`} className="relative rounded-xl border bg-muted p-3"><FileImage className="mb-8 size-7"/><p className="truncate text-xs">{f.name}</p><button onClick={()=>setFiles(files.filter((_,x)=>x!==i))} className="absolute right-2 top-2"><X className="size-4"/></button></div>)}</div><Button className="mt-4" onClick={()=>toast.success("Files queued. Choose a participant or scan the separator QR.")}>Continue to assignment</Button></Panel>:<Panel title="Current assignment status"><div className="grid gap-3 sm:grid-cols-3"><Metric label="Unassigned" value={data.photos.filter(p=>!p.participant_id).length}/><Metric label="Assigned" value={data.photos.filter(p=>p.participant_id).length}/><Metric label="Gallery ready" value={data.participants.filter(p=>p.gallery_status==="ready").length}/></div></Panel>}</> }
-
-function ShootingMode(){const {data,isLoading,refetch}=useOps(); const [index,setIndex]=useState(0); if(isLoading||!data)return <LoadingGrid rows={4}/>; const queue=data.participants.filter(p=>p.shooting_status!=="shot"); const p=queue[index%Math.max(queue.length,1)];
-  async function mark(status:string){if(!p)return; const {error}=await supabase.from("participants").update({shooting_status:status}).eq("id",p.id); if(error)toast.error("Staff sign-in is required to save shooting status."); else {toast.success(`${p.full_name}: ${titleize(status)}`); await refetch(); setIndex(0)}}
-  return <div className="min-h-screen bg-[#101714] p-5 text-white"><div className="mx-auto flex min-h-[calc(100vh-2.5rem)] max-w-4xl flex-col"><div className="flex items-center justify-between"><div><p className="text-xs uppercase tracking-[.2em] text-white/50">PhotoFlow · Shooting Mode</p><p className="font-mono text-sm">{queue.length} remaining</p></div><Button variant="secondary" onClick={()=>history.back()}>Exit</Button></div>{p?<div className="my-auto text-center"><p className="mb-3 font-mono text-2xl text-amber-300">{p.participant_code}</p><h1 className="text-5xl font-semibold sm:text-7xl">{p.full_name}</h1><p className="mt-4 text-xl text-white/60">{p.organization}</p><div className="mx-auto mt-10 grid max-w-2xl grid-cols-2 gap-3 sm:grid-cols-4"><Action label="SHOT / DONE" className="col-span-2 bg-emerald-500 text-black sm:col-span-4" onClick={()=>mark("shot")}/><Action label="SKIP" onClick={()=>setIndex(index+1)}/><Action label="NO SHOW" onClick={()=>mark("no_show")}/><Action label="RETAKE" onClick={()=>mark("retake")}/><Action label="NOTES" onClick={()=>toast.info("Notes opened")}/></div></div>:<div className="my-auto text-center"><Check className="mx-auto size-20 text-emerald-400"/><h1 className="mt-4 text-4xl">Shooting complete</h1></div>}</div></div> }
-
-function GalleriesView({data}:{data:Data}){return <><PageHeader eyebrow="Client experience" title="Client Galleries" description="Each participant sees only their assigned photos through a private ID or QR link."/><div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">{data.participants.filter(p=>p.gallery_status==="ready").map(p=><Panel key={p.id} title={p.full_name} description={`${p.participant_code} · ${participantPhotos(data,p.id).length} photos`}><Button variant="outline" className="w-full" onClick={()=>window.open(`/gallery/${data.event?.slug}?participant=${p.participant_code}`,"_blank")}>Open client gallery <ChevronRight className="size-4"/></Button></Panel>)}</div></>}
-
-function ClientGallery(){const {data,isLoading}=useOps(); const [q,setQ]=useState(""); const [chosen,setChosen]=useState<string|null>(null); const [photo,setPhoto]=useState<string|null>(null); const [pkg,setPkg]=useState<string|null>(null); if(isLoading||!data)return <LoadingGrid rows={6}/>; const person=data.participants.find(p=>p.id===chosen); const photos=person?participantPhotos(data,person.id):[];
- return <div className="min-h-screen bg-[#f7f3ea] p-5 text-[#1e2b25]"><div className="mx-auto max-w-6xl"><header className="flex items-center justify-between border-b py-4"><div><p className="font-display text-xl">PhotoFlow</p><p className="text-xs uppercase tracking-widest opacity-60">by Misantio Studio</p></div><ShieldCheck className="size-5"/></header>{!person?<section className="mx-auto max-w-xl py-24 text-center"><p className="eyebrow">{data.event?.name}</p><h1 className="mt-3 text-5xl">Find your portraits</h1><p className="mt-3 opacity-60">Enter your name or participant ID.</p><Input className="mt-8 h-14 bg-white text-lg" value={q} onChange={e=>setQ(e.target.value)} placeholder="e.g. SCE-001 or your name"/><div className="mt-3 grid gap-2 text-left">{q&&data.participants.filter(p=>`${p.full_name} ${p.participant_code}`.toLowerCase().includes(q.toLowerCase())).slice(0,5).map(p=><button key={p.id} onClick={()=>setChosen(p.id)} className="rounded-xl border bg-white p-4 text-left hover:border-primary"><b>{p.full_name}</b><span className="ml-2 font-mono text-xs opacity-60">{p.participant_code}</span></button>)}</div></section>:<section className="py-10"><button onClick={()=>{setChosen(null);setPhoto(null);setPkg(null)}} className="text-sm opacity-60">← Back to search</button><h1 className="mt-5 text-4xl">Hello, {person.full_name}</h1><p className="opacity-60">Choose your favorite portrait, then select a package.</p><div className="mt-8 grid grid-cols-2 gap-4 md:grid-cols-4">{photos.map(x=><button key={x.id} onClick={()=>setPhoto(x.id)} className={cn("relative overflow-hidden rounded-xl border-4",photo===x.id?"border-[#315c49]":"border-transparent")}><img src={x.url} className="aspect-[3/4] w-full object-cover"/>{photo===x.id&&<span className="absolute right-2 top-2 rounded-full bg-[#315c49] p-2 text-white"><Check className="size-4"/></span>}</button>)}</div>{photo&&<div className="mt-10"><h2 className="text-3xl">Choose your package</h2><div className="mt-4 grid gap-3 md:grid-cols-4">{data.packages.filter(x=>x.active).map(x=><button key={x.id} onClick={()=>setPkg(x.id)} className={cn("rounded-2xl border bg-white p-5 text-left",pkg===x.id&&"border-[#315c49] ring-2 ring-[#315c49]")}><p className="font-semibold">{x.name}</p><p className="mt-2 text-2xl">{peso(x.price)}</p><p className="mt-2 text-sm opacity-60">{x.quantity} × {x.print_size}{x.framed?" · Framed":""}</p></button>)}</div>{pkg&&<Button className="mt-6" size="lg" onClick={()=>toast.success("Order submitted! Save your order number for tracking.")}>Continue to payment · {peso(findPackage(data,pkg)?.price)}</Button>}</div>}</section>}</div></div> }
-
-function OrdersView({data}:{data:Data}){return <><PageHeader eyebrow="Sales" title="Orders" description="Selections, packages, balances and production status in one view."/><DataTable data={data} orders={data.orders}/></>}
-
-function PaymentsView({data,refresh}:{data:Data;refresh:()=>unknown}){async function verify(id:string){const {error}=await supabase.from("payments").update({status:"verified"}).eq("id",id); if(error)toast.error("Staff sign-in is required.");else{toast.success("Payment verified");await refresh()}}
-return <><PageHeader eyebrow="Cashier" title="Payments" description={`${peso(data.orders.reduce((s,o)=>s+Number(o.paid),0))} collected · ${peso(data.orders.reduce((s,o)=>s+orderBalance(o),0))} outstanding`}/><div className="grid gap-3">{data.payments.map(p=>{const o=data.orders.find(x=>x.id===p.order_id);const person=o&&findParticipant(data,o.participant_id);return <Panel key={p.id} title={person?.full_name??"Payment"} description={`${o?.order_number} · ${titleize(p.method)} · ${p.reference??"No reference"}`}><div className="flex flex-wrap items-center gap-3"><span className="text-2xl font-semibold">{peso(p.amount)}</span><StatusPill label={p.status} tone={p.status==="verified"?"success":"warning"}/>{p.status!=="verified"&&<Button size="sm" onClick={()=>verify(p.id)}>Verify proof</Button>}</div></Panel>})}</div></>}
-
-function ProductionList({data,mode,refresh}:{data:Data;mode:"print"|"qc"|"frame";refresh:()=>unknown}){const stages=mode==="print"?["for_print","printed"]:mode==="frame"?["print_qc","framed","frame_qc"]:PRODUCTION_STAGES.map(x=>x.key); const orders=data.orders.filter(o=>stages.includes(o.production_status as never)); const titles={print:"Print Queue",qc:"Production & Quality Control",frame:"Framing Queue"};
- async function advance(id:string,current:string){const i=stageIndex(current);const next=PRODUCTION_STAGES[Math.min(i+1,PRODUCTION_STAGES.length-1)]?.key;const {error}=await supabase.from("orders").update({production_status:next}).eq("id",id);if(error)toast.error("Staff sign-in is required to update production.");else{toast.success(`Moved to ${titleize(next)}`);await refresh()}}
- return <><PageHeader eyebrow="Production" title={titles[mode]} description="Large, clear controls for printing, verification and framing." actions={mode==="print"?<Button onClick={()=>window.print()}><Printer className="size-4"/> Print worksheet</Button>:undefined}/>{orders.length?<div className="grid gap-3">{orders.map(o=>{const p=findParticipant(data,o.participant_id);const pkg=findPackage(data,o.package_id);const image=findPhoto(data,o.photo_id);return <div key={o.id} className="grid gap-4 rounded-2xl border bg-card p-4 md:grid-cols-[72px_1fr_auto] md:items-center">{image?<img src={image.url} className="h-20 w-16 rounded-lg object-cover"/>:<div className="grid h-20 w-16 place-items-center rounded-lg bg-muted"><FileImage/></div>}<div><p className="font-semibold">{p?.full_name}</p><p className="text-sm text-muted-foreground">{o.order_number} · {pkg?.print_size} · {pkg?.quantity} pc{pkg?.framed?" · Framed":""}</p><div className="mt-2 flex gap-2"><StatusPill label={o.payment_status} tone={paymentTone(o.payment_status)}/><StatusPill label={o.production_status} tone={productionTone(o.production_status)}/></div></div><Button onClick={()=>advance(o.id,o.production_status)}><Check className="size-4"/> Complete stage</Button></div>})}</div>:<EmptyState title="Queue is clear" description="No orders are waiting in this stage."/>}{mode==="qc"&&<QcReference/>}</> }
-
-function QcReference(){return <div className="mt-8 grid gap-4 lg:grid-cols-3"><Checklist title="Print QC" items={PRINT_QC_CHECKLIST}/><Checklist title="Frame QC" items={FRAME_QC_CHECKLIST}/><Checklist title="Final QC" items={FINAL_QC_CHECKLIST}/></div>}
-
-function DeliveryView({data,refresh}:{data:Data;refresh:()=>unknown}){const ready=data.orders.filter(o=>["ready","delivered"].includes(o.production_status));async function deliver(id:string){const {error}=await supabase.from("orders").update({production_status:"delivered",status:"delivered",delivered_at:new Date().toISOString()}).eq("id",id);if(error)toast.error("Staff sign-in is required.");else{toast.success("Order released and delivery logged");await refresh()}}
-return <><PageHeader eyebrow="Fast release table" title="Delivery Manager" description="Verify the person, payment and final QC before releasing the package."/><div className="grid gap-4 md:grid-cols-2">{ready.map(o=>{const p=findParticipant(data,o.participant_id);const pkg=findPackage(data,o.package_id);return <Panel key={o.id} title={p?.full_name??o.order_number} description={`${p?.organization} · ${o.order_number}`}><div className="grid gap-3"><Info label="Package" value={pkg?.name}/><Info label="Balance" value={peso(orderBalance(o))}/><div className="flex gap-2"><StatusPill label={o.payment_status} tone={paymentTone(o.payment_status)}/><StatusPill label={o.production_status} tone={productionTone(o.production_status)}/></div>{o.production_status!=="delivered"?<Button size="lg" disabled={orderBalance(o)>0} onClick={()=>deliver(o.id)}><Truck className="size-5"/> Mark delivered</Button>:<div className="rounded-xl bg-emerald-500/10 p-3 text-sm text-emerald-700">Delivered · {formatDate(o.delivered_at)}</div>}</div></Panel>})}</div></>}
-
-function PackagesView({data}:{data:Data}){return <><PageHeader eyebrow="Pricing" title="Packages & Add-ons" description="Offer clear choices and instantly calculate print and frame requirements." actions={<Button onClick={()=>toast.info("Package editor requires staff sign-in.")}><Plus className="size-4"/> New package</Button>}/><div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">{data.packages.map(p=><Panel key={p.id} title={p.name} description={p.description??undefined}><p className="text-3xl font-semibold">{peso(p.price)}</p><p className="mt-2 text-sm text-muted-foreground">{p.quantity} × {p.print_size} · {p.framed?"Framed":"Print only"} · {p.digital_copy?"With digital":"Print only"}</p></Panel>)}</div></>}
-
-function ReportsView({data}:{data:Data}){const summary=useMemo(()=>{const map=new Map<string,number>();data.orderItems.forEach(i=>map.set(`${i.print_size??"Other"}${i.framed?" Frames":" Prints"}`,(map.get(`${i.print_size??"Other"}${i.framed?" Frames":" Prints"}`)??0)+i.quantity));return [...map]},[data]);function csv(){const rows=[["Order","Participant","Package","Total","Paid","Balance","Status"],...data.orders.map(o=>[o.order_number,findParticipant(data,o.participant_id)?.full_name,findPackage(data,o.package_id)?.name,o.total,o.paid,orderBalance(o),o.production_status])];const blob=new Blob([rows.map(r=>r.join(",")).join("\n")],{type:"text/csv"});const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="photoflow-orders.csv";a.click();URL.revokeObjectURL(a.href)}
-return <><PageHeader eyebrow="Business intelligence" title="Reports" description="Production requirements, sales, balances and fulfillment." actions={<Button onClick={csv}><Download className="size-4"/> Export CSV</Button>}/><div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4"><Metric label="Sales" value={peso(data.orders.reduce((s,o)=>s+Number(o.total),0))}/><Metric label="Collected" value={peso(data.orders.reduce((s,o)=>s+Number(o.paid),0))}/><Metric label="Outstanding" value={peso(data.orders.reduce((s,o)=>s+orderBalance(o),0))}/><Metric label="Delivered" value={data.orders.filter(o=>o.production_status==="delivered").length}/></div><Panel className="mt-5" title="Print Requirement Summary" description="Actual quantities from confirmed orders"><div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">{summary.map(([label,n])=><div key={label} className="rounded-xl bg-muted p-4"><p className="text-sm text-muted-foreground">{label}</p><p className="text-3xl font-semibold">{n}</p></div>)}</div></Panel><div className="mt-5"><DataTable data={data} orders={data.orders}/></div></>}
-
-function SettingsView({data}:{data:Data}){return <><PageHeader eyebrow="Configuration" title="Settings" description="Studio branding, payments, roles, notifications and workflow rules."/><div className="grid gap-4 lg:grid-cols-2"><Panel title="Studio identity"><Field label="App name"><Input defaultValue="PhotoFlow"/></Field><Field label="Studio name"><Input defaultValue="Misantio Studio"/></Field><Button className="mt-4" onClick={()=>toast.success("Settings saved locally")}>Save changes</Button></Panel><Panel title="Payment instructions"><Textarea rows={5} defaultValue={data.event?.payment_instructions??""}/><Button className="mt-4" onClick={()=>toast.success("Payment instructions updated")}>Save instructions</Button></Panel><Panel title="Staff roles" description="Owner · Photographer · Cashier · Production · Delivery Staff"><div className="flex items-center gap-2 rounded-xl bg-muted p-4"><ShieldCheck className="size-5 text-primary"/><span className="text-sm">Role-based policies are enabled in Supabase.</span></div></Panel><Panel title="Safety rules"><div className="grid gap-3 text-sm"><p>✓ Delivery requires Final QC</p><p>✓ Destructive actions require confirmation</p><p>✓ Important changes are audit logged</p><p>✓ Client galleries hide admin controls</p></div></Panel></div></>}
-
-function AuthPage(){const [email,setEmail]=useState("");const [password,setPassword]=useState("");async function signIn(){const {error}=await supabase.auth.signInWithPassword({email,password});if(error)toast.error(error.message);else{toast.success("Signed in");location.href="/"}}return <div className="grid min-h-screen place-items-center bg-background p-4"><div className="card-surface w-full max-w-md p-7"><p className="eyebrow">PhotoFlow Staff</p><h1 className="mt-2 text-4xl">Welcome back</h1><p className="mt-2 text-sm text-muted-foreground">Sign in to update participants, payments and production.</p><div className="mt-6 grid gap-4"><Field label="Email"><Input type="email" value={email} onChange={e=>setEmail(e.target.value)}/></Field><Field label="Password"><Input type="password" value={password} onChange={e=>setPassword(e.target.value)}/></Field><Button size="lg" onClick={signIn}>Sign in securely</Button><Button variant="ghost" onClick={()=>location.href="/"}>Back to dashboard</Button></div></div></div>}
-
-function DataTable({data,orders}:{data:Data;orders:Data["orders"]}){return <div className="overflow-x-auto rounded-xl border bg-card"><table className="w-full min-w-[850px] text-sm"><thead><tr className="border-b text-left text-xs text-muted-foreground"><th className="p-3">Order</th><th>Participant</th><th>Package</th><th>Total</th><th>Balance</th><th>Payment</th><th>Production</th></tr></thead><tbody>{orders.map(o=><tr key={o.id} className="border-b last:border-0"><td className="p-3 font-mono text-xs">{o.order_number}</td><td className="font-medium">{findParticipant(data,o.participant_id)?.full_name}</td><td>{findPackage(data,o.package_id)?.name}</td><td>{peso(o.total)}</td><td>{peso(orderBalance(o))}</td><td><StatusPill label={o.payment_status} tone={paymentTone(o.payment_status)}/></td><td><StatusPill label={o.production_status} tone={productionTone(o.production_status)}/></td></tr>)}</tbody></table></div>}
-function Checklist({title,items}:{title:string;items:readonly string[]}){return <Panel title={title}>{items.map(x=><label key={x} className="flex items-center gap-2 border-b py-2 text-sm last:border-0"><Checkbox/>{x}</label>)}</Panel>}
-function Metric({label,value}:{label:string;value:React.ReactNode}){return <div className="card-surface p-5"><p className="text-sm text-muted-foreground">{label}</p><p className="mt-2 text-3xl font-semibold">{value}</p></div>}
-function Field({label,children}:{label:string;children:React.ReactNode}){return <div className="grid gap-1.5"><Label>{label}</Label>{children}</div>}
-function Info({label,value}:{label:string;value:React.ReactNode}){return <div className="flex justify-between gap-3"><span className="text-muted-foreground">{label}</span><span className="text-right font-medium">{value??"—"}</span></div>}
-function Action({label,onClick,className}:{label:string;onClick:()=>void;className?:string}){return <button onClick={onClick} className={cn("min-h-20 rounded-2xl bg-white/10 px-4 font-bold hover:bg-white/20",className)}>{label}</button>}
-function NotFound(){return <EmptyState title="Page not found" description="Choose a PhotoFlow module from the navigation."/>}

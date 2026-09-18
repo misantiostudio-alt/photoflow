@@ -77,14 +77,21 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Lovable App" },
-      { name: "description", content: "Lovable Generated Project" },
-      { name: "author", content: "Lovable" },
-      { property: "og:title", content: "Lovable App" },
-      { property: "og:description", content: "Lovable Generated Project" },
+      { title: "PhotoFlow — Misantio Studio" },
+      {
+        name: "description",
+        content:
+          "PhotoFlow is Misantio Studio's event photography operations system for participant tracking, galleries, orders, payments, production and delivery.",
+      },
+      { name: "author", content: "Misantio Studio" },
+      { name: "theme-color", content: "#0B0C10" },
+      { property: "og:title", content: "PhotoFlow by Misantio Studio" },
+      {
+        property: "og:description",
+        content: "One operational workspace from capture to final photo delivery.",
+      },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
-      { name: "twitter:site", content: "@Lovable" },
     ],
     links: [
       {
@@ -102,7 +109,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
 
 function RootShell({ children }: { children: ReactNode }) {
   return (
-    <html lang="en">
+    <html lang="en" className="dark">
       <head>
         <HeadContent />
       </head>
@@ -124,4 +131,3 @@ function RootComponent() {
     </QueryClientProvider>
   );
 }
-

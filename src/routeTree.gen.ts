@@ -11,6 +11,23 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as SplatRouteImport } from './routes/$'
+import { Route as AuthRouteImport } from './routes/auth'
+import { Route as DeliveryRouteImport } from './routes/delivery'
+import { Route as EventsRouteImport } from './routes/events'
+import { Route as FramingRouteImport } from './routes/framing'
+import { Route as GalleryRouteImport } from './routes/gallery'
+import { Route as OrdersRouteImport } from './routes/orders'
+import { Route as PackagesRouteImport } from './routes/packages'
+import { Route as ParticipantsRouteImport } from './routes/participants'
+import { Route as PaymentsRouteImport } from './routes/payments'
+import { Route as PrintQueueRouteImport } from './routes/print-queue'
+import { Route as ProductionRouteImport } from './routes/production'
+import { Route as ReleaseRouteImport } from './routes/release'
+import { Route as ReportsRouteImport } from './routes/reports'
+import { Route as SettingsRouteImport } from './routes/settings'
+import { Route as ShootingRouteImport } from './routes/shooting'
+import { Route as GallerySlugRouteImport } from './routes/gallery/$slug'
+import { Route as OrderTokenRouteImport } from './routes/order/$token'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -22,31 +39,241 @@ const SplatRoute = SplatRouteImport.update({
   path: '/$',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AuthRoute = AuthRouteImport.update({
+  id: '/auth',
+  path: '/auth',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DeliveryRoute = DeliveryRouteImport.update({
+  id: '/delivery',
+  path: '/delivery',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const EventsRoute = EventsRouteImport.update({
+  id: '/events',
+  path: '/events',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const FramingRoute = FramingRouteImport.update({
+  id: '/framing',
+  path: '/framing',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const GalleryRoute = GalleryRouteImport.update({
+  id: '/gallery',
+  path: '/gallery',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const OrdersRoute = OrdersRouteImport.update({
+  id: '/orders',
+  path: '/orders',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PackagesRoute = PackagesRouteImport.update({
+  id: '/packages',
+  path: '/packages',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ParticipantsRoute = ParticipantsRouteImport.update({
+  id: '/participants',
+  path: '/participants',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PaymentsRoute = PaymentsRouteImport.update({
+  id: '/payments',
+  path: '/payments',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PrintQueueRoute = PrintQueueRouteImport.update({
+  id: '/print-queue',
+  path: '/print-queue',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ProductionRoute = ProductionRouteImport.update({
+  id: '/production',
+  path: '/production',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ReleaseRoute = ReleaseRouteImport.update({
+  id: '/release',
+  path: '/release',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ReportsRoute = ReportsRouteImport.update({
+  id: '/reports',
+  path: '/reports',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SettingsRoute = SettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ShootingRoute = ShootingRouteImport.update({
+  id: '/shooting',
+  path: '/shooting',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const GallerySlugRoute = GallerySlugRouteImport.update({
+  id: '/$slug',
+  path: '/$slug',
+  getParentRoute: () => GalleryRoute,
+} as any)
+const OrderTokenRoute = OrderTokenRouteImport.update({
+  id: '/order/$token',
+  path: '/order/$token',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/$': typeof SplatRoute
+  '/auth': typeof AuthRoute
+  '/delivery': typeof DeliveryRoute
+  '/events': typeof EventsRoute
+  '/framing': typeof FramingRoute
+  '/gallery': typeof GalleryRouteWithChildren
+  '/orders': typeof OrdersRoute
+  '/packages': typeof PackagesRoute
+  '/participants': typeof ParticipantsRoute
+  '/payments': typeof PaymentsRoute
+  '/print-queue': typeof PrintQueueRoute
+  '/production': typeof ProductionRoute
+  '/release': typeof ReleaseRoute
+  '/reports': typeof ReportsRoute
+  '/settings': typeof SettingsRoute
+  '/shooting': typeof ShootingRoute
+  '/gallery/$slug': typeof GallerySlugRoute
+  '/order/$token': typeof OrderTokenRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/$': typeof SplatRoute
+  '/auth': typeof AuthRoute
+  '/delivery': typeof DeliveryRoute
+  '/events': typeof EventsRoute
+  '/framing': typeof FramingRoute
+  '/gallery': typeof GalleryRouteWithChildren
+  '/orders': typeof OrdersRoute
+  '/packages': typeof PackagesRoute
+  '/participants': typeof ParticipantsRoute
+  '/payments': typeof PaymentsRoute
+  '/print-queue': typeof PrintQueueRoute
+  '/production': typeof ProductionRoute
+  '/release': typeof ReleaseRoute
+  '/reports': typeof ReportsRoute
+  '/settings': typeof SettingsRoute
+  '/shooting': typeof ShootingRoute
+  '/gallery/$slug': typeof GallerySlugRoute
+  '/order/$token': typeof OrderTokenRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/$': typeof SplatRoute
+  '/auth': typeof AuthRoute
+  '/delivery': typeof DeliveryRoute
+  '/events': typeof EventsRoute
+  '/framing': typeof FramingRoute
+  '/gallery': typeof GalleryRouteWithChildren
+  '/orders': typeof OrdersRoute
+  '/packages': typeof PackagesRoute
+  '/participants': typeof ParticipantsRoute
+  '/payments': typeof PaymentsRoute
+  '/print-queue': typeof PrintQueueRoute
+  '/production': typeof ProductionRoute
+  '/release': typeof ReleaseRoute
+  '/reports': typeof ReportsRoute
+  '/settings': typeof SettingsRoute
+  '/shooting': typeof ShootingRoute
+  '/gallery/$slug': typeof GallerySlugRoute
+  '/order/$token': typeof OrderTokenRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/$'
+  fullPaths:
+    | '/'
+    | '/$'
+    | '/auth'
+    | '/delivery'
+    | '/events'
+    | '/framing'
+    | '/gallery'
+    | '/orders'
+    | '/packages'
+    | '/participants'
+    | '/payments'
+    | '/print-queue'
+    | '/production'
+    | '/release'
+    | '/reports'
+    | '/settings'
+    | '/shooting'
+    | '/gallery/$slug'
+    | '/order/$token'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/$'
-  id: '__root__' | '/' | '/$'
+  to:
+    | '/'
+    | '/$'
+    | '/auth'
+    | '/delivery'
+    | '/events'
+    | '/framing'
+    | '/gallery'
+    | '/orders'
+    | '/packages'
+    | '/participants'
+    | '/payments'
+    | '/print-queue'
+    | '/production'
+    | '/release'
+    | '/reports'
+    | '/settings'
+    | '/shooting'
+    | '/gallery/$slug'
+    | '/order/$token'
+  id:
+    | '__root__'
+    | '/'
+    | '/$'
+    | '/auth'
+    | '/delivery'
+    | '/events'
+    | '/framing'
+    | '/gallery'
+    | '/orders'
+    | '/packages'
+    | '/participants'
+    | '/payments'
+    | '/print-queue'
+    | '/production'
+    | '/release'
+    | '/reports'
+    | '/settings'
+    | '/shooting'
+    | '/gallery/$slug'
+    | '/order/$token'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   SplatRoute: typeof SplatRoute
+  AuthRoute: typeof AuthRoute
+  DeliveryRoute: typeof DeliveryRoute
+  EventsRoute: typeof EventsRoute
+  FramingRoute: typeof FramingRoute
+  GalleryRoute: typeof GalleryRouteWithChildren
+  OrdersRoute: typeof OrdersRoute
+  PackagesRoute: typeof PackagesRoute
+  ParticipantsRoute: typeof ParticipantsRoute
+  PaymentsRoute: typeof PaymentsRoute
+  PrintQueueRoute: typeof PrintQueueRoute
+  ProductionRoute: typeof ProductionRoute
+  ReleaseRoute: typeof ReleaseRoute
+  ReportsRoute: typeof ReportsRoute
+  SettingsRoute: typeof SettingsRoute
+  ShootingRoute: typeof ShootingRoute
+  OrderTokenRoute: typeof OrderTokenRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -65,12 +292,158 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SplatRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/auth': {
+      id: '/auth'
+      path: '/auth'
+      fullPath: '/auth'
+      preLoaderRoute: typeof AuthRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/delivery': {
+      id: '/delivery'
+      path: '/delivery'
+      fullPath: '/delivery'
+      preLoaderRoute: typeof DeliveryRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/events': {
+      id: '/events'
+      path: '/events'
+      fullPath: '/events'
+      preLoaderRoute: typeof EventsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/framing': {
+      id: '/framing'
+      path: '/framing'
+      fullPath: '/framing'
+      preLoaderRoute: typeof FramingRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/gallery': {
+      id: '/gallery'
+      path: '/gallery'
+      fullPath: '/gallery'
+      preLoaderRoute: typeof GalleryRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/orders': {
+      id: '/orders'
+      path: '/orders'
+      fullPath: '/orders'
+      preLoaderRoute: typeof OrdersRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/packages': {
+      id: '/packages'
+      path: '/packages'
+      fullPath: '/packages'
+      preLoaderRoute: typeof PackagesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/participants': {
+      id: '/participants'
+      path: '/participants'
+      fullPath: '/participants'
+      preLoaderRoute: typeof ParticipantsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/payments': {
+      id: '/payments'
+      path: '/payments'
+      fullPath: '/payments'
+      preLoaderRoute: typeof PaymentsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/print-queue': {
+      id: '/print-queue'
+      path: '/print-queue'
+      fullPath: '/print-queue'
+      preLoaderRoute: typeof PrintQueueRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/production': {
+      id: '/production'
+      path: '/production'
+      fullPath: '/production'
+      preLoaderRoute: typeof ProductionRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/release': {
+      id: '/release'
+      path: '/release'
+      fullPath: '/release'
+      preLoaderRoute: typeof ReleaseRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/reports': {
+      id: '/reports'
+      path: '/reports'
+      fullPath: '/reports'
+      preLoaderRoute: typeof ReportsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/settings': {
+      id: '/settings'
+      path: '/settings'
+      fullPath: '/settings'
+      preLoaderRoute: typeof SettingsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/shooting': {
+      id: '/shooting'
+      path: '/shooting'
+      fullPath: '/shooting'
+      preLoaderRoute: typeof ShootingRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/gallery/$slug': {
+      id: '/gallery/$slug'
+      path: '/$slug'
+      fullPath: '/gallery/$slug'
+      preLoaderRoute: typeof GallerySlugRouteImport
+      parentRoute: typeof GalleryRoute
+    }
+    '/order/$token': {
+      id: '/order/$token'
+      path: '/order/$token'
+      fullPath: '/order/$token'
+      preLoaderRoute: typeof OrderTokenRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
+
+interface GalleryRouteChildren {
+  GallerySlugRoute: typeof GallerySlugRoute
+}
+
+const GalleryRouteChildren: GalleryRouteChildren = {
+  GallerySlugRoute: GallerySlugRoute,
+}
+
+const GalleryRouteWithChildren =
+  GalleryRoute._addFileChildren(GalleryRouteChildren)
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   SplatRoute: SplatRoute,
+  AuthRoute: AuthRoute,
+  DeliveryRoute: DeliveryRoute,
+  EventsRoute: EventsRoute,
+  FramingRoute: FramingRoute,
+  GalleryRoute: GalleryRouteWithChildren,
+  OrdersRoute: OrdersRoute,
+  PackagesRoute: PackagesRoute,
+  ParticipantsRoute: ParticipantsRoute,
+  PaymentsRoute: PaymentsRoute,
+  PrintQueueRoute: PrintQueueRoute,
+  ProductionRoute: ProductionRoute,
+  ReleaseRoute: ReleaseRoute,
+  ReportsRoute: ReportsRoute,
+  SettingsRoute: SettingsRoute,
+  ShootingRoute: ShootingRoute,
+  OrderTokenRoute: OrderTokenRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

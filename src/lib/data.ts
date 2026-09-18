@@ -21,12 +21,10 @@ export type EventRow = {
   ordering_deadline: string | null;
   delivery_date: string | null;
   payment_instructions: string | null;
-  share_token: string;
 };
 
 export type EventGroupRow = {
   id: string;
-  share_token: string;
   event_id: string;
   name: string;
   sort_order: number;
@@ -70,7 +68,6 @@ export type ParticipantRow = {
 
 export type PhotoRow = {
   id: string;
-  storage_path: string | null;
   event_id: string;
   event_group_id: string | null;
   participant_id: string | null;
@@ -81,11 +78,35 @@ export type PhotoRow = {
   sort_order: number;
   photo_type: PhotoType;
   group_name: string | null;
+  album_id: string | null;
+  storage_path: string | null;
+  original_path: string | null;
+  preview_path: string | null;
+  thumbnail_path: string | null;
+  thumbnail_url: string | null;
+  identity_thumbnail_path: string | null;
+  identity_thumbnail_url: string | null;
+  content_hash: string | null;
+  original_size: number | null;
+  width: number | null;
+  height: number | null;
+};
+
+export type PhotoAlbumRow = {
+  id: string;
+  event_id: string;
+  event_group_id: string | null;
+  name: string;
+  photo_type: string;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
 };
 
 export type OrderItemRow = {
   id: string;
   order_id: string;
+  participant_id: string | null;
   label: string;
   print_size: string | null;
   quantity: number;
@@ -93,6 +114,7 @@ export type OrderItemRow = {
   unit_price: number;
   photo_id: string | null;
   kind: string;
+  frame_color: "black" | "white" | "brown" | null;
 };
 
 export type PaymentRow = {
@@ -116,6 +138,15 @@ export type ProductionCheckRow = {
   checklist: Record<string, boolean>;
   notes: string | null;
   completed_at: string | null;
+};
+
+export type OrderMemberRow = {
+  id: string;
+  order_id: string;
+  participant_id: string;
+  photo_id: string | null;
+  is_primary: boolean;
+  sort_order: number;
 };
 
 export type OrderRow = {
@@ -144,10 +175,12 @@ export type OpsData = {
   packages: PackageRow[];
   participants: ParticipantRow[];
   photos: PhotoRow[];
+  photoAlbums: PhotoAlbumRow[];
   orders: OrderRow[];
   orderItems: OrderItemRow[];
   payments: PaymentRow[];
   checks: ProductionCheckRow[];
+  orderMembers: OrderMemberRow[];
 };
 
 const EMPTY_OPS_DATA: OpsData = {
@@ -157,10 +190,12 @@ const EMPTY_OPS_DATA: OpsData = {
   packages: [],
   participants: [],
   photos: [],
+  photoAlbums: [],
   orders: [],
   orderItems: [],
   payments: [],
   checks: [],
+  orderMembers: [],
 };
 
 function readStoredActiveEventId() {
@@ -206,15 +241,16 @@ async function fetchOps(activeEventId: string | null): Promise<OpsData> {
   const event = operationalEvents.find((item) => item.id === activeEventId) ?? operationalEvents.find((item) => item.status === "active") ?? operationalEvents[0] ?? null;
 
   if (!event) {
-    return { events, event: null, eventGroups: [], packages: [], participants: [], photos: [], orders: [], orderItems: [], payments: [], checks: [] };
+    return { events, event: null, eventGroups: [], packages: [], participants: [], photos: [], photoAlbums: [], orders: [], orderItems: [], payments: [], checks: [], orderMembers: [] };
   }
 
-  const [groupsResult, packagesResult, participantsResult, photosResult, ordersResult] = await withTimeout(
+  const [groupsResult, packagesResult, participantsResult, photosResult, photoAlbumsResult, ordersResult] = await withTimeout(
     Promise.all([
       (supabase as any).from("event_groups").select("*").eq("event_id", event.id).eq("active", true).order("sort_order").order("name"),
       supabase.from("packages").select("*").eq("event_id", event.id).order("sort_order"),
       supabase.from("participants").select("*").eq("event_id", event.id).order("participant_code"),
       supabase.from("photos").select("*").eq("event_id", event.id).order("sort_order"),
+      (supabase as any).from("photo_albums").select("*").eq("event_id", event.id).order("created_at", { ascending: false }),
       supabase.from("orders").select("*").eq("event_id", event.id).order("order_number"),
     ]),
     12_000,
@@ -224,15 +260,17 @@ async function fetchOps(activeEventId: string | null): Promise<OpsData> {
   throwIfError(packagesResult.error);
   throwIfError(participantsResult.error);
   throwIfError(photosResult.error);
+  throwIfError(photoAlbumsResult.error);
   throwIfError(ordersResult.error);
 
   const orders = (ordersResult.data ?? []) as unknown as OrderRow[];
   const orderIds = new Set(orders.map((order) => order.id));
-  const [orderItemsResult, paymentsResult, checksResult] = await withTimeout(
+  const [orderItemsResult, paymentsResult, checksResult, orderMembersResult] = await withTimeout(
     Promise.all([
       supabase.from("order_items").select("*"),
       supabase.from("payments").select("*").order("paid_at", { ascending: false }),
       supabase.from("production_checks").select("*"),
+      (supabase as any).from("order_members").select("*").order("sort_order"),
     ]),
     12_000,
     "PhotoFlow could not load orders and production status in time.",
@@ -240,6 +278,7 @@ async function fetchOps(activeEventId: string | null): Promise<OpsData> {
   throwIfError(orderItemsResult.error);
   throwIfError(paymentsResult.error);
   throwIfError(checksResult.error);
+  // Shared-order members are staff-only. Guests can still load the read-only workspace without them.
 
   return {
     events,
@@ -248,10 +287,12 @@ async function fetchOps(activeEventId: string | null): Promise<OpsData> {
     packages: (packagesResult.data ?? []) as unknown as PackageRow[],
     participants: (participantsResult.data ?? []) as unknown as ParticipantRow[],
     photos: (photosResult.data ?? []) as unknown as PhotoRow[],
+    photoAlbums: (photoAlbumsResult.data ?? []) as PhotoAlbumRow[],
     orders,
     orderItems: ((orderItemsResult.data ?? []) as unknown as OrderItemRow[]).filter((item) => orderIds.has(item.order_id)),
     payments: ((paymentsResult.data ?? []) as PaymentRow[]).filter((item) => orderIds.has(item.order_id)),
     checks: ((checksResult.data ?? []) as ProductionCheckRow[]).filter((item) => orderIds.has(item.order_id)),
+    orderMembers: orderMembersResult.error ? [] : ((orderMembersResult.data ?? []) as OrderMemberRow[]).filter((item) => orderIds.has(item.order_id)),
   };
 }
 

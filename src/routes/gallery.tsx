@@ -104,6 +104,9 @@ function GalleryWorkspace() {
   const [assistAddons, setAssistAddons] = useState<Record<string, number>>({});
   const [assistBusy, setAssistBusy] = useState(false);
   const [optimizingLegacy, setOptimizingLegacy] = useState(false);
+  const [uploadOpen, setUploadOpen] = useState(false);
+  const [linksOpen, setLinksOpen] = useState(false);
+  const [maintenanceOpen, setMaintenanceOpen] = useState(false);
 
   useEffect(() => {
     if (!selectedGroupId && data?.eventGroups.length) setSelectedGroupId(data.eventGroups[0].id);
@@ -1043,271 +1046,76 @@ function GalleryWorkspace() {
         description="Upload once, share the client gallery, and manage every photo from one workspace."
       />
 
-      {hasGroups ? (
-        <Panel className="mb-5" title="Client gallery links" description="Each class gets its own ordering link.">
-          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+      <section className="rounded-xl border border-border bg-card">
+        <div className="flex flex-col gap-4 p-4 lg:flex-row lg:items-center">
+          <div className="grid flex-1 grid-cols-2 gap-3 sm:grid-cols-4">
+            <div><p className="text-[0.65rem] font-bold uppercase tracking-[.1em] text-muted-foreground">Solo</p><p className="mt-1 font-display text-2xl font-extrabold">{soloPhotos.length}</p></div>
+            <div><p className="text-[0.65rem] font-bold uppercase tracking-[.1em] text-muted-foreground">Waiting</p><p className={cn("mt-1 font-display text-2xl font-extrabold", waitingSolo.length > 0 && "text-warning")}>{waitingSolo.length}</p></div>
+            <div><p className="text-[0.65rem] font-bold uppercase tracking-[.1em] text-muted-foreground">Claimed</p><p className="mt-1 font-display text-2xl font-extrabold">{claimedSolo.length}</p></div>
+            <div><p className="text-[0.65rem] font-bold uppercase tracking-[.1em] text-muted-foreground">Class</p><p className="mt-1 font-display text-2xl font-extrabold">{groupPhotos.length}</p></div>
+          </div>
+
+          <div className="flex flex-col gap-2 lg:items-end">
+            <div className={cn(
+              "inline-flex items-center gap-2 rounded-md border px-3 py-2 text-xs font-semibold",
+              soloPhotos.length > 0 && groupPhotos.length > 0 && groupPackages.length > 0 && Boolean(data.event.payment_instructions)
+                ? "border-primary/25 bg-primary/5 text-foreground"
+                : "border-warning/30 bg-warning/5 text-warning",
+            )}>
+              <span className={cn("size-2 rounded-full", soloPhotos.length > 0 && groupPhotos.length > 0 && groupPackages.length > 0 && Boolean(data.event.payment_instructions) ? "bg-primary" : "bg-warning")} />
+              {soloPhotos.length > 0 && groupPhotos.length > 0 && groupPackages.length > 0 && Boolean(data.event.payment_instructions)
+                ? "Ready to share"
+                : "Needs setup"}
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <Button size="sm" variant="outline" onClick={() => void copyLink(hasGroups && selectedGroup ? galleryUrl(selectedGroup.id) : baseGalleryUrl, selectedGroup?.name ?? data.event!.name)}>
+                <Copy className="size-4" /> Copy link
+              </Button>
+              <Button size="sm" asChild><a href={hasGroups && selectedGroup ? galleryUrl(selectedGroup.id) : baseGalleryUrl} target="_blank" rel="noreferrer">Open gallery <ExternalLink className="size-4" /></a></Button>
+              {hasGroups ? <Button size="sm" variant="ghost" onClick={() => setLinksOpen((value) => !value)}><Link2 className="size-4" /> {linksOpen ? "Hide class links" : "Class links"}</Button> : null}
+            </div>
+          </div>
+        </div>
+
+        {linksOpen && hasGroups ? (
+          <div className="grid gap-2 border-t border-border p-4 sm:grid-cols-2 xl:grid-cols-3">
             {data.eventGroups.map((group) => {
               const url = galleryUrl(group.id);
               const count = soloPhotos.filter((photo) => photo.event_group_id === group.id && !photo.participant_id).length;
               return (
-                <div key={group.id} className="rounded-lg border border-border bg-muted/10 p-4">
-                  <div className="flex items-start justify-between gap-3">
-                    <div><p className="font-semibold">{group.name}</p><p className="mt-1 text-xs text-muted-foreground">{count} photo{count === 1 ? "" : "s"} available</p></div>
-                    <Link2 className="size-4 text-primary" />
+                <div key={group.id} className="flex items-center gap-3 rounded-lg border border-border bg-muted/10 p-3">
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-semibold">{group.name}</p>
+                    <p className="mt-0.5 text-xs text-muted-foreground">{count} waiting portrait{count === 1 ? "" : "s"}</p>
                   </div>
-                  <div className="mt-4 flex gap-2">
-                    <Button size="sm" variant="outline" onClick={() => void copyLink(url, group.name)}>
-                      <Copy className="size-4" /> {copiedUrl === url ? "Copied!" : "Copy link"}
-                    </Button>
-                    <Button size="sm" asChild><a href={url} target="_blank" rel="noreferrer">Open <ExternalLink className="size-4" /></a></Button>
-                  </div>
+                  <Button size="sm" variant="outline" onClick={() => void copyLink(url, group.name)}>{copiedUrl === url ? "Copied" : "Copy"}</Button>
+                  <Button size="sm" variant="ghost" asChild><a href={url} target="_blank" rel="noreferrer"><ExternalLink className="size-3.5" /></a></Button>
                 </div>
               );
             })}
           </div>
-        </Panel>
-      ) : (
-        <div className="mb-5 flex flex-wrap gap-2">
-          <Button variant="outline" onClick={() => void copyLink(baseGalleryUrl, data.event!.name)}>
-            <Copy className="size-4" /> {copiedUrl === baseGalleryUrl ? "Copied!" : "Copy gallery link"}
-          </Button>
-          <Button asChild><a href={baseGalleryUrl} target="_blank" rel="noreferrer">Open client gallery <ExternalLink className="size-4" /></a></Button>
-        </div>
-      )}
+        ) : null}
+      </section>
 
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <Panel title="Solo photos" description="Ready for client selection"><p className="font-display text-3xl font-extrabold">{soloPhotos.length}</p></Panel>
-        <Panel title="Waiting" description="Not claimed yet"><p className="font-display text-3xl font-extrabold">{waitingSolo.length}</p></Panel>
-        <Panel title="Claimed" description="Client identified"><p className="font-display text-3xl font-extrabold">{claimedSolo.length}</p></Panel>
-        <Panel title="Class photos" description="Used by P1 / P2 / P3"><p className="font-display text-3xl font-extrabold">{groupPhotos.length}</p></Panel>
-      </div>
-
-      <div className={cn(
-        "mt-5 rounded-xl border p-4",
-        soloPhotos.length > 0 && groupPhotos.length > 0 && groupPackages.length > 0 && Boolean(data.event.payment_instructions)
-          ? "border-primary/25 bg-primary/[.035]"
-          : "border-warning/25 bg-warning/5",
-      )}>
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
+      {waitingSolo.length > 0 ? (
+        <div className="mt-3 flex flex-col gap-3 rounded-lg border border-warning/25 bg-warning/5 p-3 sm:flex-row sm:items-center">
           <div className="min-w-0 flex-1">
-            <p className="eyebrow">Share readiness</p>
-            <p className="mt-1 font-semibold">
-              {soloPhotos.length > 0 && groupPhotos.length > 0 && groupPackages.length > 0 && Boolean(data.event.payment_instructions)
-                ? "Ready to share"
-                : "Needs attention before sharing"}
-            </p>
+            <p className="text-sm font-semibold">{waitingSolo.length} portrait{waitingSolo.length === 1 ? "" : "s"} still waiting to be claimed</p>
+            <p className="mt-0.5 text-xs text-muted-foreground">These are the photos most likely to need your attention.</p>
           </div>
-          <div className="flex flex-wrap gap-2 text-xs">
-            {[
-              ["Solo photos", soloPhotos.length > 0],
-              ["Class photo", groupPhotos.length > 0],
-              ["Packages", groupPackages.length > 0],
-              ["Payment", Boolean(data.event.payment_instructions)],
-            ].map(([label, ok]) => (
-              <span key={String(label)} className={cn("rounded-md border px-2.5 py-1.5", ok ? "border-primary/25 bg-primary/5 text-foreground" : "border-warning/30 bg-warning/5 text-warning")}>
-                {ok ? "✓" : "!"} {String(label)}
-              </span>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {legacyPhotos.length ? (
-        <div className="mt-5 flex flex-col gap-3 rounded-xl border border-warning/25 bg-warning/5 p-4 sm:flex-row sm:items-center">
-          <div className="min-w-0 flex-1">
-            <p className="font-semibold">{legacyPhotos.length} older upload{legacyPhotos.length === 1 ? "" : "s"} can be optimized</p>
-            <p className="mt-1 text-xs text-muted-foreground">This will create fast gallery previews and thumbnails. The existing source image stays available.</p>
-          </div>
-          <Button variant="outline" onClick={() => void optimizeExisting()} disabled={optimizingLegacy}>
-            <RefreshCw className={cn("size-4", optimizingLegacy && "animate-spin")} />
-            {optimizingLegacy ? "Optimizing…" : "Optimize existing"}
+          <Button size="sm" variant="outline" onClick={() => { setManagerType("solo"); setManagerStatus("waiting"); document.getElementById("manage-gallery")?.scrollIntoView({ behavior: "smooth", block: "start" }); }}>
+            View waiting
           </Button>
         </div>
       ) : null}
 
-      <Panel className="mt-5" title="Upload photos" description="Originals stay on your computer. PhotoFlow uploads only optimized gallery previews and thumbnails.">
-        <div className="grid gap-5 lg:grid-cols-[300px_1fr]">
-          <div>
-            <Label>Photo type</Label>
-            <div className="mt-2 grid grid-cols-2 gap-2">
-              <button type="button" disabled={uploading} onClick={() => { setUploadType("solo"); setFiles([]); }} className={cn("rounded-lg border p-4 text-left", uploadType === "solo" ? "border-primary bg-primary/5" : "border-border bg-muted/10")}>
-                <ImagePlus className="size-5 text-primary" /><p className="mt-3 text-sm font-semibold">Solo photos</p><p className="mt-1 text-xs text-muted-foreground">Client chooses their own photo.</p>
-              </button>
-              <button type="button" disabled={uploading} onClick={() => { setUploadType("group"); setFiles([]); }} className={cn("rounded-lg border p-4 text-left", uploadType === "group" ? "border-primary bg-primary/5" : "border-border bg-muted/10")}>
-                <UsersRound className="size-5 text-primary" /><p className="mt-3 text-sm font-semibold">Class photo</p><p className="mt-1 text-xs text-muted-foreground">Official package image.</p>
-              </button>
-            </div>
-          </div>
-
-          <div className="grid content-start gap-4">
-            {hasGroups ? (
-              <label className="grid gap-1.5">
-                <Label>Batch / Class</Label>
-                <select disabled={uploading} className="h-10 rounded-md border border-input bg-background px-3 text-sm" value={selectedGroupId} onChange={(event) => setSelectedGroupId(event.target.value)}>
-                  {data.eventGroups.map((group) => <option key={group.id} value={group.id}>{group.name}</option>)}
-                </select>
-              </label>
-            ) : (
-              <div className="rounded-lg border border-border bg-muted/10 px-3 py-2.5">
-                <p className="text-xs font-semibold text-foreground">{data.event!.name}</p>
-                <p className="mt-0.5 text-[0.68rem] text-muted-foreground">Event-level gallery</p>
-              </div>
-            )}
-
-            <label className="grid gap-1.5">
-              <Label>Album name <span className="font-normal text-muted-foreground">(optional)</span></Label>
-              <Input
-                disabled={uploading}
-                value={albumName}
-                onChange={(event) => setAlbumName(event.target.value)}
-                placeholder={selectedGroup?.name ? `${selectedGroup.name} · Upload 1` : "e.g. Morning session · Upload 1"}
-              />
-            </label>
-
-            <div
-              className={cn(
-                "rounded-xl border border-dashed p-6 text-center transition",
-                dragging ? "border-primary bg-primary/5" : "border-border bg-muted/10",
-                uploading && "pointer-events-none opacity-70",
-              )}
-              onDragEnter={(event) => { event.preventDefault(); setDragging(true); }}
-              onDragOver={(event) => event.preventDefault()}
-              onDragLeave={() => setDragging(false)}
-              onDrop={(event) => {
-                event.preventDefault();
-                setDragging(false);
-                chooseFiles(Array.from(event.dataTransfer.files));
-              }}
-            >
-              <Upload className="mx-auto size-7 text-primary" />
-              <p className="mt-3 text-sm font-semibold">Drop photos here</p>
-              <p className="mt-1 text-xs text-muted-foreground">or choose files from your computer</p>
-              <Button className="mt-4" size="sm" variant="outline" onClick={() => fileRef.current?.click()} disabled={uploading}>Choose files</Button>
-              <input
-                ref={fileRef}
-                className="hidden"
-                type="file"
-                accept="image/jpeg,image/png,image/webp"
-                multiple={uploadType === "solo"}
-                onChange={(event) => chooseFiles(Array.from(event.target.files ?? []))}
-              />
-            </div>
-
-            {files.length && !uploading ? (
-              <div className="rounded-lg border border-border bg-muted/15 p-3">
-                <div className="flex items-center justify-between gap-3">
-                  <div><p className="text-sm font-semibold">{files.length} file{files.length === 1 ? "" : "s"} ready</p><p className="mt-1 text-xs text-muted-foreground">{formatBytes(files.reduce((sum, file) => sum + file.size, 0))} original size</p></div>
-                  <Button size="sm" variant="ghost" onClick={() => { setFiles([]); if (fileRef.current) fileRef.current.value = ""; }}><X className="size-4" /> Clear</Button>
-                </div>
-                <div className="mt-3 max-h-28 space-y-1 overflow-auto text-xs text-muted-foreground">
-                  {files.map((file) => <div key={`${file.name}-${file.size}`} className="flex justify-between gap-3"><span className="truncate">{file.name}</span><span className="shrink-0">{formatBytes(file.size)}</span></div>)}
-                </div>
-              </div>
-            ) : null}
-
-            {uploadStates.length ? (
-              <div className={cn(
-                "rounded-xl border p-4",
-                uploadResult ? "border-primary/30 bg-primary/[.035]" : "border-border bg-card",
-              )}>
-                <div className="flex items-center justify-between gap-3">
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-2">
-                      {uploadResult ? <span className="grid size-7 place-items-center rounded-full bg-primary text-primary-foreground"><Check className="size-4" /></span> : null}
-                      <p className="text-sm font-semibold">{uploading ? "Uploading…" : uploadResult ? "Done" : "Upload finished"}</p>
-                    </div>
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      {currentUpload
-                        ? `${currentUpload.name} · ${currentUpload.status}`
-                        : uploadResult
-                          ? `${uploadResult.uploaded} added to “${uploadResult.albumName}” · ${uploadResult.skipped} skipped · ${uploadResult.failed} failed`
-                          : `${uploadDone} uploaded · ${uploadSkipped} skipped · ${uploadFailed} failed`}
-                    </p>
-                  </div>
-                  <p className="font-display text-2xl font-extrabold">{uploadPercent}%</p>
-                </div>
-                <div className="mt-3 h-2 overflow-hidden rounded-full bg-muted"><div className="h-full bg-primary transition-[width] duration-300" style={{ width: `${uploadPercent}%` }} /></div>
-                {!uploadResult || uploadFailed ? (
-                  <div className="mt-3 max-h-36 space-y-1 overflow-auto">
-                    {uploadStates.map((item) => (
-                      <div key={item.name} className="flex items-center justify-between gap-3 text-xs">
-                        <span className="truncate">{item.name}</span>
-                        <span className={cn(
-                          "shrink-0",
-                          item.tone === "done" && "text-success",
-                          item.tone === "duplicate" && "text-warning",
-                          item.tone === "error" && "text-destructive",
-                        )}>{item.status}</span>
-                      </div>
-                    ))}
-                  </div>
-                ) : null}
-
-                {uploadResult ? (
-                  <div className="mt-4 flex flex-wrap gap-2 border-t border-border pt-4">
-                    <Button size="sm" onClick={viewUploadedAlbum}><FolderOpen className="size-4" /> View album</Button>
-                    <Button size="sm" variant="outline" onClick={resetUploader}><Upload className="size-4" /> Upload more</Button>
-                    <Button size="sm" variant="outline" asChild>
-                      <a href={galleryUrl(uploadResult.groupId ?? undefined)} target="_blank" rel="noreferrer">Open client gallery <ExternalLink className="size-4" /></a>
-                    </Button>
-                  </div>
-                ) : null}
-              </div>
-            ) : null}
-
-            {!uploadResult ? (
-              <div><Button onClick={() => void upload()} disabled={uploading || !files.length}><Upload className="size-4" /> {uploading ? `Uploading ${uploadPercent}%` : "Upload to gallery"}</Button></div>
-            ) : null}
-          </div>
-        </div>
-      </Panel>
-
-      <section className="mt-8 border-t border-border pt-7">
-        <div className="flex items-end justify-between gap-3">
-          <div>
-            <p className="eyebrow">Albums</p>
-            <h2 className="mt-1 font-display text-2xl font-extrabold">Upload sets</h2>
-            <p className="mt-1 text-sm text-muted-foreground">Each upload session stays together so you can manage or remove it in one action.</p>
-          </div>
-          {managerAlbum !== "all" ? <Button size="sm" variant="ghost" onClick={() => setManagerAlbum("all")}>Show all photos</Button> : null}
-        </div>
-
-        {visibleAlbums.length ? (
-          <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-            {visibleAlbums.map((album) => {
-              const albumPhotos = data.photos.filter((photo) => photo.album_id === album.id && !photo.is_separator);
-              const protectedCount = albumPhotos.filter(isProtectedPhoto).length;
-              const group = data.eventGroups.find((item) => item.id === album.event_group_id);
-              return (
-                <div key={album.id} className={cn("rounded-lg border bg-card p-4", managerAlbum === album.id ? "border-primary/50 bg-primary/[.03]" : "border-border")}>
-                  <div className="flex items-start gap-3">
-                    <span className="grid size-10 shrink-0 place-items-center rounded-md bg-primary/10 text-primary"><FolderOpen className="size-5" /></span>
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate font-semibold">{album.name}</p>
-                      <p className="mt-1 text-xs text-muted-foreground">{albumPhotos.length} photo{albumPhotos.length === 1 ? "" : "s"} · {group?.name ?? "General"} · {album.photo_type === "group" ? "Class photo" : "Solo"}</p>
-                      {protectedCount ? <p className="mt-1 text-xs text-warning">{protectedCount} protected by claim/order</p> : null}
-                    </div>
-                  </div>
-                  <div className="mt-4 flex gap-2">
-                    <Button size="sm" variant={managerAlbum === album.id ? "default" : "outline"} onClick={() => setManagerAlbum(album.id)}>View album</Button>
-                    <Button size="sm" variant="ghost" disabled={bulkDeleting} onClick={() => void deleteAlbum(album.id)}><Trash2 className="size-3.5" /> Delete album</Button>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        ) : (
-          <div className="mt-4 rounded-lg border border-dashed border-border p-5 text-sm text-muted-foreground">Your next upload will automatically create an album.</div>
-        )}
-      </section>
-
       <section id="manage-gallery" className="mt-8 scroll-mt-24 border-t border-border pt-7">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-          <div><p className="eyebrow">Manage gallery</p><h2 className="mt-1 font-display text-2xl font-extrabold">Photos</h2><p className="mt-1 text-sm text-muted-foreground">{managedPhotos.length} of {data.photos.filter((photo) => !photo.is_separator).length} photos shown</p></div>
+          <div><p className="eyebrow">Photo manager</p><h2 className="mt-1 font-display text-2xl font-extrabold">Gallery workspace</h2><p className="mt-1 text-sm text-muted-foreground">{managedPhotos.length} of {data.photos.filter((photo) => !photo.is_separator).length} photos shown · claimed portraits show client names first</p></div>
           <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
             <label className="relative sm:col-span-2 lg:col-span-1">
               <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-              <Input className="pl-9" value={managerSearch} onChange={(event) => setManagerSearch(event.target.value)} placeholder="Search filename…" />
+              <Input className="pl-9" value={managerSearch} onChange={(event) => setManagerSearch(event.target.value)} placeholder="Search name, contact or file…" />
             </label>
             <select className="h-10 rounded-md border border-input bg-background px-3 text-sm" value={managerType} onChange={(event) => setManagerType(event.target.value as ManagerType)}>
               <option value="all">All photos</option><option value="solo">Solo</option><option value="group">Class photo</option>
@@ -1413,6 +1221,222 @@ function GalleryWorkspace() {
           </>
         ) : (
           <EmptyState title="No photos match these filters" description="Change the filters or upload new photos." />
+        )}
+      </section>
+
+
+      {legacyPhotos.length ? (
+        <div className="mt-5 rounded-lg border border-border bg-card">
+          <button type="button" onClick={() => setMaintenanceOpen((value) => !value)} className="flex w-full items-center gap-3 p-3 text-left">
+            <RefreshCw className={cn("size-4 text-muted-foreground", optimizingLegacy && "animate-spin")} />
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-semibold">Gallery maintenance</p>
+              <p className="mt-0.5 text-xs text-muted-foreground">{legacyPhotos.length} older upload{legacyPhotos.length === 1 ? "" : "s"} can be optimized</p>
+            </div>
+            <span className="text-xs text-muted-foreground">{maintenanceOpen ? "Hide" : "Open"}</span>
+          </button>
+          {maintenanceOpen ? (
+            <div className="flex flex-col gap-3 border-t border-border p-3 sm:flex-row sm:items-center">
+              <p className="min-w-0 flex-1 text-xs text-muted-foreground">Creates faster gallery previews and thumbnails. Existing source images stay available.</p>
+              <Button size="sm" variant="outline" onClick={() => void optimizeExisting()} disabled={optimizingLegacy}>
+                <RefreshCw className={cn("size-4", optimizingLegacy && "animate-spin")} />
+                {optimizingLegacy ? "Optimizing…" : "Optimize existing"}
+              </Button>
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+
+      <section className="mt-5">
+        <div className="flex flex-col gap-3 rounded-lg border border-border bg-card p-3 sm:flex-row sm:items-center">
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-semibold">Upload photos</p>
+            <p className="mt-0.5 text-xs text-muted-foreground">Open only when you need to add another solo batch or official class photo.</p>
+          </div>
+          <Button size="sm" onClick={() => setUploadOpen((value) => !value)}>
+            <Upload className="size-4" /> {uploadOpen ? "Close upload" : "Upload photos"}
+          </Button>
+        </div>
+        {uploadOpen ? (
+          <div className="mt-3">
+            <Panel className="mt-5" title="Upload photos" description="Originals stay on your computer. PhotoFlow uploads only optimized gallery previews and thumbnails.">
+              <div className="grid gap-5 lg:grid-cols-[300px_1fr]">
+                <div>
+                  <Label>Photo type</Label>
+                  <div className="mt-2 grid grid-cols-2 gap-2">
+                    <button type="button" disabled={uploading} onClick={() => { setUploadType("solo"); setFiles([]); }} className={cn("rounded-lg border p-4 text-left", uploadType === "solo" ? "border-primary bg-primary/5" : "border-border bg-muted/10")}>
+                      <ImagePlus className="size-5 text-primary" /><p className="mt-3 text-sm font-semibold">Solo photos</p><p className="mt-1 text-xs text-muted-foreground">Client chooses their own photo.</p>
+                    </button>
+                    <button type="button" disabled={uploading} onClick={() => { setUploadType("group"); setFiles([]); }} className={cn("rounded-lg border p-4 text-left", uploadType === "group" ? "border-primary bg-primary/5" : "border-border bg-muted/10")}>
+                      <UsersRound className="size-5 text-primary" /><p className="mt-3 text-sm font-semibold">Class photo</p><p className="mt-1 text-xs text-muted-foreground">Official package image.</p>
+                    </button>
+                  </div>
+                </div>
+
+                <div className="grid content-start gap-4">
+                  {hasGroups ? (
+                    <label className="grid gap-1.5">
+                      <Label>Batch / Class</Label>
+                      <select disabled={uploading} className="h-10 rounded-md border border-input bg-background px-3 text-sm" value={selectedGroupId} onChange={(event) => setSelectedGroupId(event.target.value)}>
+                        {data.eventGroups.map((group) => <option key={group.id} value={group.id}>{group.name}</option>)}
+                      </select>
+                    </label>
+                  ) : (
+                    <div className="rounded-lg border border-border bg-muted/10 px-3 py-2.5">
+                      <p className="text-xs font-semibold text-foreground">{data.event!.name}</p>
+                      <p className="mt-0.5 text-[0.68rem] text-muted-foreground">Event-level gallery</p>
+                    </div>
+                  )}
+
+                  <label className="grid gap-1.5">
+                    <Label>Album name <span className="font-normal text-muted-foreground">(optional)</span></Label>
+                    <Input
+                      disabled={uploading}
+                      value={albumName}
+                      onChange={(event) => setAlbumName(event.target.value)}
+                      placeholder={selectedGroup?.name ? `${selectedGroup.name} · Upload 1` : "e.g. Morning session · Upload 1"}
+                    />
+                  </label>
+
+                  <div
+                    className={cn(
+                      "rounded-xl border border-dashed p-6 text-center transition",
+                      dragging ? "border-primary bg-primary/5" : "border-border bg-muted/10",
+                      uploading && "pointer-events-none opacity-70",
+                    )}
+                    onDragEnter={(event) => { event.preventDefault(); setDragging(true); }}
+                    onDragOver={(event) => event.preventDefault()}
+                    onDragLeave={() => setDragging(false)}
+                    onDrop={(event) => {
+                      event.preventDefault();
+                      setDragging(false);
+                      chooseFiles(Array.from(event.dataTransfer.files));
+                    }}
+                  >
+                    <Upload className="mx-auto size-7 text-primary" />
+                    <p className="mt-3 text-sm font-semibold">Drop photos here</p>
+                    <p className="mt-1 text-xs text-muted-foreground">or choose files from your computer</p>
+                    <Button className="mt-4" size="sm" variant="outline" onClick={() => fileRef.current?.click()} disabled={uploading}>Choose files</Button>
+                    <input
+                      ref={fileRef}
+                      className="hidden"
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp"
+                      multiple={uploadType === "solo"}
+                      onChange={(event) => chooseFiles(Array.from(event.target.files ?? []))}
+                    />
+                  </div>
+
+                  {files.length && !uploading ? (
+                    <div className="rounded-lg border border-border bg-muted/15 p-3">
+                      <div className="flex items-center justify-between gap-3">
+                        <div><p className="text-sm font-semibold">{files.length} file{files.length === 1 ? "" : "s"} ready</p><p className="mt-1 text-xs text-muted-foreground">{formatBytes(files.reduce((sum, file) => sum + file.size, 0))} original size</p></div>
+                        <Button size="sm" variant="ghost" onClick={() => { setFiles([]); if (fileRef.current) fileRef.current.value = ""; }}><X className="size-4" /> Clear</Button>
+                      </div>
+                      <div className="mt-3 max-h-28 space-y-1 overflow-auto text-xs text-muted-foreground">
+                        {files.map((file) => <div key={`${file.name}-${file.size}`} className="flex justify-between gap-3"><span className="truncate">{file.name}</span><span className="shrink-0">{formatBytes(file.size)}</span></div>)}
+                      </div>
+                    </div>
+                  ) : null}
+
+                  {uploadStates.length ? (
+                    <div className={cn(
+                      "rounded-xl border p-4",
+                      uploadResult ? "border-primary/30 bg-primary/[.035]" : "border-border bg-card",
+                    )}>
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-2">
+                            {uploadResult ? <span className="grid size-7 place-items-center rounded-full bg-primary text-primary-foreground"><Check className="size-4" /></span> : null}
+                            <p className="text-sm font-semibold">{uploading ? "Uploading…" : uploadResult ? "Done" : "Upload finished"}</p>
+                          </div>
+                          <p className="mt-1 text-xs text-muted-foreground">
+                            {currentUpload
+                              ? `${currentUpload.name} · ${currentUpload.status}`
+                              : uploadResult
+                                ? `${uploadResult.uploaded} added to “${uploadResult.albumName}” · ${uploadResult.skipped} skipped · ${uploadResult.failed} failed`
+                                : `${uploadDone} uploaded · ${uploadSkipped} skipped · ${uploadFailed} failed`}
+                          </p>
+                        </div>
+                        <p className="font-display text-2xl font-extrabold">{uploadPercent}%</p>
+                      </div>
+                      <div className="mt-3 h-2 overflow-hidden rounded-full bg-muted"><div className="h-full bg-primary transition-[width] duration-300" style={{ width: `${uploadPercent}%` }} /></div>
+                      {!uploadResult || uploadFailed ? (
+                        <div className="mt-3 max-h-36 space-y-1 overflow-auto">
+                          {uploadStates.map((item) => (
+                            <div key={item.name} className="flex items-center justify-between gap-3 text-xs">
+                              <span className="truncate">{item.name}</span>
+                              <span className={cn(
+                                "shrink-0",
+                                item.tone === "done" && "text-success",
+                                item.tone === "duplicate" && "text-warning",
+                                item.tone === "error" && "text-destructive",
+                              )}>{item.status}</span>
+                            </div>
+                          ))}
+                        </div>
+                      ) : null}
+
+                      {uploadResult ? (
+                        <div className="mt-4 flex flex-wrap gap-2 border-t border-border pt-4">
+                          <Button size="sm" onClick={viewUploadedAlbum}><FolderOpen className="size-4" /> View album</Button>
+                          <Button size="sm" variant="outline" onClick={resetUploader}><Upload className="size-4" /> Upload more</Button>
+                          <Button size="sm" variant="outline" asChild>
+                            <a href={galleryUrl(uploadResult.groupId ?? undefined)} target="_blank" rel="noreferrer">Open client gallery <ExternalLink className="size-4" /></a>
+                          </Button>
+                        </div>
+                      ) : null}
+                    </div>
+                  ) : null}
+
+                  {!uploadResult ? (
+                    <div><Button onClick={() => void upload()} disabled={uploading || !files.length}><Upload className="size-4" /> {uploading ? `Uploading ${uploadPercent}%` : "Upload to gallery"}</Button></div>
+                  ) : null}
+                </div>
+              </div>
+            </Panel>
+
+
+          </div>
+        ) : null}
+      </section>
+
+      <section className="mt-8 border-t border-border pt-7">
+        <div className="flex items-end justify-between gap-3">
+          <div>
+            <p className="eyebrow">Albums</p>
+            <h2 className="mt-1 font-display text-2xl font-extrabold">Upload sets</h2>
+            <p className="mt-1 text-sm text-muted-foreground">Each upload session stays together so you can manage or remove it in one action.</p>
+          </div>
+          {managerAlbum !== "all" ? <Button size="sm" variant="ghost" onClick={() => setManagerAlbum("all")}>Show all photos</Button> : null}
+        </div>
+
+        {visibleAlbums.length ? (
+          <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+            {visibleAlbums.map((album) => {
+              const albumPhotos = data.photos.filter((photo) => photo.album_id === album.id && !photo.is_separator);
+              const protectedCount = albumPhotos.filter(isProtectedPhoto).length;
+              const group = data.eventGroups.find((item) => item.id === album.event_group_id);
+              return (
+                <div key={album.id} className={cn("rounded-lg border bg-card p-4", managerAlbum === album.id ? "border-primary/50 bg-primary/[.03]" : "border-border")}>
+                  <div className="flex items-start gap-3">
+                    <span className="grid size-10 shrink-0 place-items-center rounded-md bg-primary/10 text-primary"><FolderOpen className="size-5" /></span>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate font-semibold">{album.name}</p>
+                      <p className="mt-1 text-xs text-muted-foreground">{albumPhotos.length} photo{albumPhotos.length === 1 ? "" : "s"} · {group?.name ?? "General"} · {album.photo_type === "group" ? "Class photo" : "Solo"}</p>
+                      {protectedCount ? <p className="mt-1 text-xs text-warning">{protectedCount} protected by claim/order</p> : null}
+                    </div>
+                  </div>
+                  <div className="mt-4 flex gap-2">
+                    <Button size="sm" variant={managerAlbum === album.id ? "default" : "outline"} onClick={() => setManagerAlbum(album.id)}>View album</Button>
+                    <Button size="sm" variant="ghost" disabled={bulkDeleting} onClick={() => void deleteAlbum(album.id)}><Trash2 className="size-3.5" /> Delete album</Button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="mt-4 rounded-lg border border-dashed border-border p-5 text-sm text-muted-foreground">Your next upload will automatically create an album.</div>
         )}
       </section>
 

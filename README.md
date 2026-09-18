@@ -1082,3 +1082,5 @@ cd <repository-name>
 npm i
 npm run dev
 ```
+
+<!-- lovable-sync: packages-v2-2026-09-18 -->

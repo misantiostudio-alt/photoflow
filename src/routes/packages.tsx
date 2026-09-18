@@ -58,6 +58,16 @@ const emptyForm = (type: PackageProductType): PackageForm => ({
   active: true,
 });
 
+const COMMON_PRINT_SIZES = [
+  "4R",
+  "5R",
+  "6R",
+  "8R / 8×10",
+  "8×12",
+  "11R / 11×14",
+  "12×16",
+] as const;
+
 const PSS_DEFAULTS = [
   { code: "P1", product_type: "group_package", name: "Class Photo · Print", price: 150, print_size: "8R / 8×10", quantity: 1, framed: false, description: "Official class/group photo · print only" },
   { code: "P2", product_type: "group_package", name: "Class Photo · Framed", price: 550, print_size: "8R / 8×10", quantity: 1, framed: true, description: "Official class/group photo with frame + white mat" },
@@ -539,12 +549,17 @@ function PackagesPage() {
                     />
                   </Field>
 
-                  <Field label="Print size">
+                  <Field label="Print size" hint="Common or custom">
                     <Input
+                      list="photoflow-print-sizes"
                       value={form.print_size}
                       onChange={(event) => setForm({ ...form, print_size: event.target.value })}
                       placeholder="8R / 8×10"
                     />
+                    <datalist id="photoflow-print-sizes">
+                      {COMMON_PRINT_SIZES.map((size) => <option key={size} value={size} />)}
+                    </datalist>
+                    <p className="text-[0.65rem] text-muted-foreground">Choose a common size or type any custom size.</p>
                   </Field>
 
                   <Field label="Prints per product">

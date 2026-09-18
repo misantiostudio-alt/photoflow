@@ -45,8 +45,8 @@ export function PersonAvatar({
           alt={label}
           loading="lazy"
           decoding="async"
-          className="h-full w-full object-cover"
-          style={{ objectPosition: "50% 18%" }}
+          className="h-full w-full scale-[1.16] object-cover"
+          style={{ objectPosition: "50% 24%" }}
         />
       ) : (
         <div className="grid h-full w-full place-items-center font-bold text-muted-foreground">

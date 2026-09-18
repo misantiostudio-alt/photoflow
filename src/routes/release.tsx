@@ -5,6 +5,7 @@ import { toast } from "sonner";
 
 import { AppShell } from "@/components/app-shell";
 import { EmptyState, LoadingGrid, PageHeader, Panel } from "@/components/page";
+import { PeopleAvatars } from "@/components/person-avatar";
 import { StatusPill } from "@/components/status-pill";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -35,7 +36,14 @@ function ReleasePage() {
       .filter((order) => {
         if (!needle) return true;
         const participant = findParticipant(data, order.participant_id);
-        return `${order.order_number} ${participant?.full_name ?? ""} ${participant?.organization ?? ""} ${participant?.contact_number ?? ""}`
+        const members = data.orderMembers
+          .filter((member) => member.order_id === order.id)
+          .map((member) => findParticipant(data, member.participant_id))
+          .filter(Boolean);
+        const memberText = members
+          .map((member) => `${member!.full_name} ${member!.organization ?? ""} ${member!.contact_number ?? ""}`)
+          .join(" ");
+        return `${order.order_number} ${participant?.full_name ?? ""} ${participant?.organization ?? ""} ${participant?.contact_number ?? ""} ${memberText}`
           .toLowerCase()
           .includes(needle);
       });
@@ -70,14 +78,37 @@ function ReleasePage() {
 
     setBusy(orderId);
     try {
-      const db = supabase as any;
-      const result = await withTimeout(db.rpc("release_order_v1", {
-        _order_id: orderId,
-        _receiver_name: receiver.trim(),
-        _notes: notes.trim() || null,
-        _actor: email,
-      }), 12_000, "Release update timed out. Please try again.");
-      if (result.error) throw result.error;
+      const now = new Date().toISOString();
+      const orderResult = await withTimeout(
+        supabase
+          .from("orders")
+          .update({ production_status: "delivered", status: "delivered", delivered_at: now })
+          .eq("id", orderId),
+        12_000,
+        "Release update timed out. Please try again.",
+      );
+      if (orderResult.error) throw orderResult.error;
+
+      const deliveryResult = await withTimeout(supabase.from("deliveries").upsert(
+        {
+          order_id: orderId,
+          status: "delivered",
+          delivered_by: email,
+          receiver_name: receiver.trim(),
+          notes: notes.trim() || null,
+          delivered_at: now,
+        },
+        { onConflict: "order_id" },
+      ), 12_000, "Delivery record save timed out.");
+      if (deliveryResult.error) throw deliveryResult.error;
+
+      await withTimeout(supabase.from("audit_logs").insert({
+        entity_type: "order",
+        entity_id: orderId,
+        action: "delivered",
+        actor: email,
+        notes: `Released to ${receiver.trim()}${notes.trim() ? ` · ${notes.trim()}` : ""}`,
+      }), 12_000, "Release audit save timed out.");
 
       toast.success("Thank you. The order has been marked as received.");
       setOpenOrder(null);
@@ -117,7 +148,15 @@ function ReleasePage() {
             <div className="grid gap-4 md:grid-cols-2">
               {visibleOrders.map((order) => {
                 const participant = findParticipant(data, order.participant_id);
+                const members = data.orderMembers
+                  .filter((member) => member.order_id === order.id)
+                  .map((member) => findParticipant(data, member.participant_id))
+                  .filter(Boolean);
+                const displayPeople = members.length ? members : [participant];
+                const memberNames = members.map((member) => member!.full_name);
                 const pkg = findPackage(data, order.package_id);
+                const items = data.orderItems.filter((item) => item.order_id === order.id);
+                const framedItems = items.filter((item) => item.framed);
                 const balance = orderBalance(order);
                 const finalCheck = data.checks.find((check) => check.order_id === order.id && check.stage === "final_check");
                 const blocked = order.production_status !== "delivered" && (balance > 0 || !finalCheck?.completed);
@@ -127,16 +166,42 @@ function ReleasePage() {
                   <Panel
                     key={order.id}
                     title={participant?.full_name ?? order.order_number}
-                    description={`${participant?.organization ?? "No congregation"} · ${order.order_number}`}
+                    description={`${memberNames.length > 1 ? `${memberNames.length} people · ${memberNames.join(", ")}` : participant?.organization ?? "No congregation"} · ${order.order_number}`}
                     actions={<div className="flex gap-2"><StatusPill label={order.payment_status} tone={paymentTone(order.payment_status)} /><StatusPill label={order.production_status} tone={productionTone(order.production_status)} /></div>}
                   >
-                    <div className="grid gap-3 text-sm">
+                    <div className="grid gap-4 text-sm">
+                      <div className="grid gap-4 rounded-xl border border-primary/20 bg-primary/[.025] p-4 sm:grid-cols-[120px_1fr] sm:items-center">
+                        <div className="flex justify-center sm:justify-start">
+                          <PeopleAvatars people={displayPeople} size="xl" max={3} />
+                        </div>
+                        <div className="min-w-0 text-center sm:text-left">
+                          <p className="eyebrow">Pickup identity</p>
+                          <p className="mt-1 truncate font-display text-xl font-extrabold">
+                            {memberNames.length > 1 ? memberNames.join(" · ") : participant?.full_name ?? "Participant"}
+                          </p>
+                          <p className="mt-1 truncate text-xs text-muted-foreground">{participant?.organization ?? "No congregation"}</p>
+                          <p className="mt-1 truncate text-xs text-muted-foreground">{participant?.contact_number ?? "No contact number"}</p>
+                        </div>
+                      </div>
                       <div className="grid grid-cols-2 gap-3 rounded-lg border border-border bg-muted/15 p-3">
                         <div><p className="text-xs text-muted-foreground">Package</p><p className="mt-1 font-semibold">{pkg?.name ?? "—"}</p></div>
                         <div><p className="text-xs text-muted-foreground">Balance</p><p className="mt-1 font-semibold">{peso(balance)}</p></div>
                         <div><p className="text-xs text-muted-foreground">Final QC</p><p className="mt-1 font-semibold">{finalCheck?.completed ? "Completed" : "Required"}</p></div>
                         <div><p className="text-xs text-muted-foreground">Received</p><p className="mt-1 font-semibold">{order.delivered_at ? formatDateTime(order.delivered_at) : "—"}</p></div>
                       </div>
+
+                      {framedItems.length ? (
+                        <div className="rounded-lg border border-border bg-muted/10 p-3">
+                          <p className="text-xs font-semibold text-muted-foreground">Frame details</p>
+                          <div className="mt-2 flex flex-wrap gap-2">
+                            {framedItems.map((item) => {
+                              const color = item.frame_color ?? "black";
+                              const label = color[0].toUpperCase() + color.slice(1);
+                              return <span key={item.id} className="rounded-md border border-border bg-background px-2.5 py-1.5 text-xs"><strong>{item.kind === "group_package" ? "Class" : "Solo"}</strong> · {label} frame · White mat</span>;
+                            })}
+                          </div>
+                        </div>
+                      ) : null}
 
                       {order.production_status === "delivered" ? (
                         <div className="flex items-center gap-2 rounded-lg border border-success/20 bg-success/10 p-3 text-success"><CheckCircle2 className="size-4" /> Order already received</div>

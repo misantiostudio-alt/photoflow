@@ -30,6 +30,7 @@ function GalleryWorkspace() {
   const [files, setFiles] = useState<File[]>([]);
   const [uploading, setUploading] = useState(false);
   const [photoUrls, setPhotoUrls] = useState<Record<string, string>>({});
+  const [copiedLink, setCopiedLink] = useState<string | null>(null);
 
   useEffect(() => {
     if (!selectedGroupId && data?.eventGroups.length) setSelectedGroupId(data.eventGroups[0].id);
@@ -74,6 +75,8 @@ function GalleryWorkspace() {
   async function copyLink(url: string, label: string) {
     try {
       await navigator.clipboard.writeText(url);
+      setCopiedLink(url);
+      window.setTimeout(() => setCopiedLink((current) => current === url ? null : current), 2500);
       toast.success(`${label} gallery link copied`);
     } catch {
       toast.error("Could not copy the gallery link.");
@@ -146,14 +149,14 @@ function GalleryWorkspace() {
               return (
                 <div key={group.id} className="rounded-lg border border-border bg-muted/10 p-4">
                   <div className="flex items-start justify-between gap-3"><div><p className="font-semibold">{group.name}</p><p className="mt-1 text-xs text-muted-foreground">{count} portrait{count === 1 ? "" : "s"} waiting</p></div><Link2 className="size-4 text-primary" /></div>
-                  <div className="mt-4 flex gap-2"><Button size="sm" variant="outline" onClick={() => void copyLink(url, group.name)}><Copy className="size-4" /> Copy link</Button><Button size="sm" asChild><a href={url} target="_blank" rel="noreferrer">Open <ExternalLink className="size-4" /></a></Button></div>
+                  <div className="mt-4 flex gap-2"><Button size="sm" variant="outline" onClick={() => void copyLink(url, group.name)}>{copiedLink === url ? <Check className="size-4" /> : <Copy className="size-4" />} {copiedLink === url ? "Copied" : "Copy link"}</Button><Button size="sm" asChild><a href={url} target="_blank" rel="noreferrer">Open <ExternalLink className="size-4" /></a></Button></div>
                 </div>
               );
             })}
           </div>
         </Panel>
       ) : (
-        <div className="mb-5 flex flex-wrap gap-2"><Button variant="outline" onClick={() => void copyLink(baseGalleryUrl, data.event!.name)}><Copy className="size-4" /> Copy gallery link</Button><Button asChild><a href={baseGalleryUrl} target="_blank" rel="noreferrer">Open client gallery <ExternalLink className="size-4" /></a></Button></div>
+        <div className="mb-5 flex flex-wrap gap-2"><Button variant="outline" onClick={() => void copyLink(baseGalleryUrl, data.event!.name)}>{copiedLink === baseGalleryUrl ? <Check className="size-4" /> : <Copy className="size-4" />} {copiedLink === baseGalleryUrl ? "Copied" : "Copy gallery link"}</Button><Button asChild><a href={baseGalleryUrl} target="_blank" rel="noreferrer">Open client gallery <ExternalLink className="size-4" /></a></Button></div>
       )}
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -168,15 +171,15 @@ function GalleryWorkspace() {
           <div>
             <Label>What are you uploading?</Label>
             <div className="mt-2 grid grid-cols-2 gap-2">
-              <button type="button" onClick={() => setUploadType("solo")} className={cn("rounded-lg border p-4 text-left", uploadType === "solo" ? "border-primary bg-primary/5" : "border-border bg-muted/10")}><ImagePlus className="size-5 text-primary" /><p className="mt-3 text-sm font-semibold">Solo portraits</p><p className="mt-1 text-xs text-muted-foreground">Choose-yourself photos.</p></button>
-              <button type="button" onClick={() => setUploadType("group")} className={cn("rounded-lg border p-4 text-left", uploadType === "group" ? "border-primary bg-primary/5" : "border-border bg-muted/10")}><UsersRound className="size-5 text-primary" /><p className="mt-3 text-sm font-semibold">Class / group</p><p className="mt-1 text-xs text-muted-foreground">Official P1/P2/P3 image.</p></button>
+              <button type="button" aria-pressed={uploadType === "solo"} onClick={() => { setUploadType("solo"); if (uploadType !== "solo") { setFiles([]); if (fileRef.current) fileRef.current.value = ""; } }} className={cn("rounded-lg border p-4 text-left", uploadType === "solo" ? "border-primary bg-primary/5" : "border-border bg-muted/10")}><ImagePlus className="size-5 text-primary" /><p className="mt-3 text-sm font-semibold">Solo portraits</p><p className="mt-1 text-xs text-muted-foreground">Choose-yourself photos.</p></button>
+              <button type="button" aria-pressed={uploadType === "group"} onClick={() => { setUploadType("group"); if (uploadType !== "group") { setFiles([]); if (fileRef.current) fileRef.current.value = ""; } }} className={cn("rounded-lg border p-4 text-left", uploadType === "group" ? "border-primary bg-primary/5" : "border-border bg-muted/10")}><UsersRound className="size-5 text-primary" /><p className="mt-3 text-sm font-semibold">Class / group</p><p className="mt-1 text-xs text-muted-foreground">Official P1/P2/P3 image.</p></button>
             </div>
           </div>
           <div className="grid content-start gap-4">
             {hasGroups ? <label className="grid gap-1.5"><Label>Batch / Class</Label><select className="h-10 rounded-md border border-input bg-background px-3 text-sm" value={selectedGroupId} onChange={(event) => setSelectedGroupId(event.target.value)}>{data.eventGroups.map((group) => <option key={group.id} value={group.id}>{group.name}</option>)}</select><p className="text-xs text-muted-foreground">Only this batch will see these solo portraits in its shared gallery.</p></label> : uploadType === "group" ? <label className="grid gap-1.5"><Label>Class / group name</Label><Input value={manualGroupName} onChange={(event) => setManualGroupName(event.target.value)} placeholder="Official group" /></label> : null}
             <label className="grid gap-1.5"><Label>{uploadType === "group" ? "Official group photo" : "Edited solo portraits"}</Label><Input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp" multiple={uploadType === "solo"} onChange={(event) => setFiles(Array.from(event.target.files ?? []))} /></label>
             {files.length ? <div className="rounded-lg border border-border bg-muted/15 p-3 text-sm"><p className="font-semibold">{files.length} file{files.length === 1 ? "" : "s"} ready</p><p className="mt-1 truncate text-xs text-muted-foreground">{files.map((file) => file.name).join(" · ")}</p></div> : null}
-            <div><Button onClick={() => void upload()} disabled={uploading || !files.length}><Upload className="size-4" /> {uploading ? "Uploading…" : "Upload to gallery"}</Button></div>
+            <div><Button onClick={() => void upload()} disabled={uploading || !files.length}><Upload className="size-4" /> {uploading ? "Uploading…" : "Upload to gallery"}</Button>{!files.length ? <p className="mt-2 text-xs text-muted-foreground">Pumili muna ng photo sa Choose Files bago mag-upload.</p> : null}</div>
           </div>
         </div>
       </Panel>

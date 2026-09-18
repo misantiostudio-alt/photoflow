@@ -328,7 +328,7 @@ export function AppShell({ children }: { children: ReactNode }) {
               maxLength={6}
               type="password"
               value={pinValue}
-              onChange={(event) => setPinValue(event.target.value.replace(/\\D/g, "").slice(0, 6))}
+              onChange={(event) => setPinValue(event.target.value.replace(/\D/g, "").slice(0, 6))}
               onKeyDown={(event) => event.key === "Enter" && void unlockWithPin()}
               placeholder="••••••"
             />

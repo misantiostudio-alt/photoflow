@@ -72,8 +72,6 @@ function ReleasePage() {
     if (!order) return;
     if (order.production_status !== "ready") return toast.error("This order is not marked Ready yet.");
     if (orderBalance(order) > 0) return toast.error("There is still a balance to settle before release.");
-    const finalCheck = data.checks.find((check) => check.order_id === orderId && check.stage === "final_check");
-    if (!finalCheck?.completed) return toast.error("Final quality check must be completed before release.");
     if (!receiver.trim()) return toast.error("Please enter the receiver name.");
 
     setBusy(orderId);
@@ -158,8 +156,7 @@ function ReleasePage() {
                 const items = data.orderItems.filter((item) => item.order_id === order.id);
                 const framedItems = items.filter((item) => item.framed);
                 const balance = orderBalance(order);
-                const finalCheck = data.checks.find((check) => check.order_id === order.id && check.stage === "final_check");
-                const blocked = order.production_status !== "delivered" && (balance > 0 || !finalCheck?.completed);
+                const blocked = order.production_status !== "delivered" && (balance > 0 || order.production_status !== "ready");
                 const isOpen = openOrder === order.id;
 
                 return (
@@ -186,7 +183,7 @@ function ReleasePage() {
                       <div className="grid grid-cols-2 gap-3 rounded-lg border border-border bg-muted/15 p-3">
                         <div><p className="text-xs text-muted-foreground">Package</p><p className="mt-1 font-semibold">{pkg?.name ?? "—"}</p></div>
                         <div><p className="text-xs text-muted-foreground">Balance</p><p className="mt-1 font-semibold">{peso(balance)}</p></div>
-                        <div><p className="text-xs text-muted-foreground">Final QC</p><p className="mt-1 font-semibold">{finalCheck?.completed ? "Completed" : "Required"}</p></div>
+                        <div><p className="text-xs text-muted-foreground">Production</p><p className="mt-1 font-semibold">{order.production_status === "ready" ? "Ready" : order.production_status === "delivered" ? "Released" : "In progress"}</p></div>
                         <div><p className="text-xs text-muted-foreground">Received</p><p className="mt-1 font-semibold">{order.delivered_at ? formatDateTime(order.delivered_at) : "—"}</p></div>
                       </div>
 
@@ -208,7 +205,7 @@ function ReleasePage() {
                       ) : blocked ? (
                         <div className="rounded-lg border border-warning/25 bg-warning/10 p-3">
                           <div className="flex items-center gap-2 font-semibold text-warning"><LockKeyhole className="size-4" /> Not ready to release yet</div>
-                          <p className="mt-1 text-xs text-muted-foreground">{balance > 0 ? `There is a remaining balance of ${peso(balance)}.` : "Final quality check is still pending."}</p>
+                          <p className="mt-1 text-xs text-muted-foreground">{balance > 0 ? `There is a remaining balance of ${peso(balance)}.` : "This order has not been marked Ready in Production yet."}</p>
                           <div className="mt-3 flex gap-2">{balance > 0 ? <Button size="sm" asChild><Link to="/orders">Open Orders</Link></Button> : <Button size="sm" asChild><Link to="/production">Open Production</Link></Button>}</div>
                         </div>
                       ) : isOpen ? (
@@ -225,7 +222,7 @@ function ReleasePage() {
                 );
               })}
             </div>
-          ) : <EmptyState title="Nothing ready for release" description="Orders will appear here after payment and Final QC are complete." />}
+          ) : <EmptyState title="Nothing ready for release" description="Orders will appear here when Production marks them Ready." />}
         </>
       )}
     </AppShell>

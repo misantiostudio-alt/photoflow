@@ -32,6 +32,7 @@ export type EventGroupRow = {
 };
 
 export type PackageProductType = "group_package" | "solo_addon";
+export type FrameColor = "black" | "white" | "brown";
 export type PhotoType = "solo" | "group";
 
 export type PackageRow = {
@@ -44,6 +45,7 @@ export type PackageRow = {
   print_size: string;
   quantity: number;
   framed: boolean;
+  frame_colors?: FrameColor[];
   digital_copy: boolean;
   description: string | null;
   sort_order: number;

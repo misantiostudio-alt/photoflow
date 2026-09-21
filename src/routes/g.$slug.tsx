@@ -12,7 +12,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { withTimeout } from "@/lib/async";
 import { publicAppUrl } from "@/lib/public-url";
 import { parsePaymentProfile, type PaymentProfile } from "@/lib/payment-profile";
-import type { EventGroupRow, EventRow, PackageRow, PhotoRow } from "@/lib/data";
+import type { EventGroupRow, EventRow, FrameColor, PackageRow, PhotoRow } from "@/lib/data";
 import { peso } from "@/lib/domain";
 import { cn } from "@/lib/utils";
 
@@ -49,7 +49,6 @@ type OrderPerson = {
 };
 
 type ClientOrder = { id: string; order_number: string; public_token: string; total: number };
-type FrameColor = "black" | "white" | "brown";
 
 type ClientDraft = {
   version: 2;
@@ -134,6 +133,7 @@ async function fetchGallery(slug: string, batchId?: string): Promise<GalleryData
     print_size: item.print_size,
     quantity: Number(item.quantity),
     framed: Boolean(item.framed),
+    frame_colors: normalizeFrameColors(item.frame_colors),
     digital_copy: Boolean(item.digital_copy),
     description: item.description ?? null,
     sort_order: Number(item.sort_order ?? 0),
@@ -185,6 +185,18 @@ const FRAME_OPTIONS: Array<{ value: FrameColor; label: string; swatch: string }>
   { value: "white", label: "White", swatch: "#f1f1ed" },
   { value: "brown", label: "Brown", swatch: "#6b422a" },
 ];
+
+function normalizeFrameColors(value: unknown): FrameColor[] {
+  const valid = new Set<FrameColor>(FRAME_OPTIONS.map((option) => option.value));
+  const colors = Array.isArray(value)
+    ? value.filter((color): color is FrameColor => valid.has(color as FrameColor))
+    : [];
+  return colors.length ? colors : ["black"];
+}
+
+function packageFrameColors(item?: PackageRow | null) {
+  return normalizeFrameColors(item?.frame_colors);
+}
 
 function frameGradient(color: FrameColor) {
   if (color === "white") return "linear-gradient(135deg,#ffffff 0%,#d9d9d4 35%,#fafaf7 58%,#c9c9c3 100%)";
@@ -251,14 +263,19 @@ function FrameColorPicker({
   value,
   onChange,
   compact = false,
+  colors = FRAME_OPTIONS.map((option) => option.value),
 }: {
   value: FrameColor;
   onChange: (value: FrameColor) => void;
   compact?: boolean;
+  colors?: FrameColor[];
 }) {
+  const options = FRAME_OPTIONS.filter((option) => colors.includes(option.value));
+  if (options.length <= 1) return null;
+
   return (
-    <div className={cn("grid gap-2", compact ? "grid-cols-3" : "sm:grid-cols-3")}>
-      {FRAME_OPTIONS.map((option) => (
+    <div className={cn("grid gap-2", options.length === 2 ? "grid-cols-2" : compact ? "grid-cols-3" : "sm:grid-cols-3")}>
+      {options.map((option) => (
         <button
           key={option.value}
           type="button"
@@ -317,6 +334,7 @@ function ClientGalleryPage() {
   const groupPackages = useMemo(() => data?.packages.filter((item) => item.product_type === "group_package") ?? [], [data?.packages]);
   const soloAddons = useMemo(() => data?.packages.filter((item) => item.product_type === "solo_addon") ?? [], [data?.packages]);
   const selectedGroupPackage = groupPackages.find((item) => item.id === groupPackageId) ?? null;
+  const selectedGroupFrameColors = useMemo(() => packageFrameColors(selectedGroupPackage), [selectedGroupPackage]);
   const matchedGroupPhoto = data?.photos.find((photo) => photo.photo_type === "group") ?? null;
 
   const estimatedTotal = useMemo(() => {
@@ -328,6 +346,16 @@ function ClientGalleryPage() {
     }
     return total;
   }, [addonQty, people, selectedGroupPackage?.price, soloAddons]);
+
+  useEffect(() => {
+    if (!selectedGroupPackage?.framed) {
+      if (groupFrameColor !== "black") setGroupFrameColor("black");
+      return;
+    }
+    if (!selectedGroupFrameColors.includes(groupFrameColor)) {
+      setGroupFrameColor(selectedGroupFrameColors[0] ?? "black");
+    }
+  }, [groupFrameColor, selectedGroupFrameColors, selectedGroupPackage?.framed]);
 
   const paymentAmount = order ? (paymentPlan === "half" ? Math.ceil(order.total * 0.5 * 100) / 100 : order.total) : 0;
   const selectedPaymentAccount = paymentMethod === "gcash"
@@ -652,7 +680,11 @@ function ClientGalleryPage() {
           package_id: addon.id,
           quantity: addonQty[identity.participant_id]?.[addon.id] ?? 0,
           frame_color: addon.framed
-            ? (addonFrameColors[identity.participant_id]?.[addon.id] ?? "black")
+            ? (() => {
+                const colors = packageFrameColors(addon);
+                const saved = addonFrameColors[identity.participant_id]?.[addon.id];
+                return saved && colors.includes(saved) ? saved : colors[0];
+              })()
             : null,
         }));
 
@@ -661,7 +693,7 @@ function ClientGalleryPage() {
         db.rpc("submit_client_order_v6", {
           _resume_token: identity.resume_token,
           _group_package_id: selectedGroupPackage.id,
-          _group_frame_color: selectedGroupPackage.framed ? groupFrameColor : "black",
+          _group_frame_color: selectedGroupPackage.framed ? (selectedGroupFrameColors.includes(groupFrameColor) ? groupFrameColor : selectedGroupFrameColors[0]) : "black",
           _solo_addons: soloAddonsForPrimary,
         }),
         15_000,
@@ -960,17 +992,17 @@ function ClientGalleryPage() {
                 <div>
                   {groupPackages.length ? (
                     <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-                      {groupPackages.map((item) => <button key={item.id} type="button" onClick={() => { setGroupPackageId(item.id); if (!item.framed) setGroupFrameColor("black"); }} className={cn("rounded-xl border p-5 text-left transition", groupPackageId === item.id ? "border-primary bg-primary/5 ring-1 ring-primary" : "border-border bg-card hover:border-primary/30")}><p className="text-xs font-bold uppercase tracking-[.14em] text-primary">{item.code || "Package"}</p><p className="mt-2 font-semibold">{item.name}</p><p className="mt-3 font-display text-3xl font-extrabold">{peso(item.price)}</p><p className="mt-2 text-xs leading-5 text-muted-foreground">{item.quantity} × {item.print_size}{item.framed ? " · frame + white mat" : " · print only"}</p></button>)}
+                      {groupPackages.map((item) => <button key={item.id} type="button" onClick={() => { setGroupPackageId(item.id); setGroupFrameColor(item.framed ? packageFrameColors(item)[0] : "black"); }} className={cn("rounded-xl border p-5 text-left transition", groupPackageId === item.id ? "border-primary bg-primary/5 ring-1 ring-primary" : "border-border bg-card hover:border-primary/30")}><p className="text-xs font-bold uppercase tracking-[.14em] text-primary">{item.code || "Package"}</p><p className="mt-2 font-semibold">{item.name}</p><p className="mt-3 font-display text-3xl font-extrabold">{peso(item.price)}</p><p className="mt-2 text-xs leading-5 text-muted-foreground">{item.quantity} × {item.print_size}{item.framed ? " · frame + white mat" : " · print only"}</p></button>)}
                     </div>
                   ) : <div className="rounded-lg border border-dashed border-border p-6 text-sm text-muted-foreground">No active class packages yet.</div>}
 
-                  {selectedGroupPackage?.framed ? (
+                  {selectedGroupPackage?.framed && selectedGroupFrameColors.length > 1 ? (
                     <div className="mt-5 rounded-xl border border-border bg-card p-4">
                       <div className="mb-3">
                         <p className="text-sm font-semibold">Choose frame color</p>
                         <p className="mt-1 text-xs text-muted-foreground">White mat board is included. Your mockup updates instantly.</p>
                       </div>
-                      <FrameColorPicker value={groupFrameColor} onChange={setGroupFrameColor} />
+                      <FrameColorPicker colors={selectedGroupFrameColors} value={groupFrameColor} onChange={setGroupFrameColor} />
                     </div>
                   ) : null}
                 </div>
@@ -989,7 +1021,11 @@ function ClientGalleryPage() {
                     const personFrameColors = addonFrameColors[person.identity.participant_id] ?? {};
                     const selectedFramedAddon = soloAddons.find((item) => item.framed && (personQty[item.id] ?? 0) > 0);
                     const previewFrameColor = selectedFramedAddon
-                      ? (personFrameColors[selectedFramedAddon.id] ?? "black")
+                      ? (() => {
+                          const colors = packageFrameColors(selectedFramedAddon);
+                          const saved = personFrameColors[selectedFramedAddon.id];
+                          return saved && colors.includes(saved) ? saved : colors[0];
+                        })()
                       : "black";
 
                     return (
@@ -1009,7 +1045,11 @@ function ClientGalleryPage() {
                             <div className="grid gap-3 sm:grid-cols-2">
                               {soloAddons.map((item) => {
                                 const qty = personQty[item.id] ?? 0;
-                                const frameColor = personFrameColors[item.id] ?? "black";
+                                const availableFrameColors = packageFrameColors(item);
+                                const savedFrameColor = personFrameColors[item.id];
+                                const frameColor = savedFrameColor && availableFrameColors.includes(savedFrameColor)
+                                  ? savedFrameColor
+                                  : availableFrameColors[0];
 
                                 return (
                                   <div key={item.id} className={cn("rounded-xl border p-4", qty > 0 ? "border-primary/40 bg-primary/5" : "border-border bg-background")}>
@@ -1029,11 +1069,12 @@ function ClientGalleryPage() {
                                       <Button size="icon" variant="outline" onClick={() => updateAddon(person.identity.participant_id, item.id, 1)}><Plus className="size-4" /></Button>
                                     </div>
 
-                                    {item.framed && qty > 0 ? (
+                                    {item.framed && qty > 0 && availableFrameColors.length > 1 ? (
                                       <div className="mt-4 border-t border-border pt-3">
                                         <p className="mb-2 text-[0.66rem] font-bold uppercase tracking-[.1em] text-muted-foreground">Frame color</p>
                                         <FrameColorPicker
                                           compact
+                                          colors={availableFrameColors}
                                           value={frameColor}
                                           onChange={(color) => updateAddonFrameColor(person.identity.participant_id, item.id, color)}
                                         />

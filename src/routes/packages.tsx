@@ -24,6 +24,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
 import { supabase } from "@/integrations/supabase/client";
 import { withTimeout } from "@/lib/async";
 import { useOps, useSession, type FrameColor, type PackageProductType, type PackageRow } from "@/lib/data";
@@ -123,12 +124,14 @@ function SummaryCard({
 
 function ProductCard({
   item,
+  globalFrameColor,
   onEdit,
   onDuplicate,
   onToggle,
   onRemove,
 }: {
   item: PackageRow;
+  globalFrameColor?: FrameColor | null;
   onEdit: () => void;
   onDuplicate: () => void;
   onToggle: () => void;
@@ -183,7 +186,11 @@ function ProductCard({
 
         <div className="mt-4 flex flex-wrap gap-1.5">
           <span className="rounded-md border border-border bg-background/45 px-2 py-1 text-[0.63rem] text-muted-foreground">
-            {item.framed ? `Framed + white mat · ${(item.frame_colors?.length ? item.frame_colors : ["black"]).map((color) => color[0].toUpperCase() + color.slice(1)).join(" / ")}` : "Print only"}
+            {item.framed
+              ? globalFrameColor
+                ? `Framed + white mat · Global ${globalFrameColor[0].toUpperCase() + globalFrameColor.slice(1)}`
+                : `Framed + white mat · ${(item.frame_colors?.length ? item.frame_colors : ["black"]).map((color) => color[0].toUpperCase() + color.slice(1)).join(" / ")}`
+              : "Print only"}
           </span>
           {item.digital_copy ? (
             <span className="rounded-md border border-border bg-background/45 px-2 py-1 text-[0.63rem] text-muted-foreground">
@@ -226,6 +233,7 @@ function PackagesPage() {
   const [form, setForm] = useState<PackageForm>(emptyForm("group_package"));
   const [saving, setSaving] = useState(false);
   const [loadingDefaults, setLoadingDefaults] = useState(false);
+  const [savingGlobalFrameColor, setSavingGlobalFrameColor] = useState(false);
 
   const groupPackages = useMemo(
     () =>
@@ -243,6 +251,8 @@ function PackagesPage() {
     [data?.packages],
   );
 
+  const globalFrameEnabled = Boolean(data?.event?.single_frame_color_enabled);
+  const globalFrameColor = (data?.event?.single_frame_color ?? "black") as FrameColor;
   const visibleCount = useMemo(() => data?.packages.filter((item) => item.active).length ?? 0, [data?.packages]);
   const startingPrice = useMemo(() => {
     const prices = (data?.packages ?? []).filter((item) => item.active).map((item) => Number(item.price));
@@ -427,6 +437,40 @@ function PackagesPage() {
     }
   }
 
+  async function saveGlobalFrameControl(enabled: boolean, color: FrameColor = globalFrameColor) {
+    if (!requireStaff() || !data.event) return;
+    setSavingGlobalFrameColor(true);
+
+    try {
+      const { error } = await withTimeout(
+        supabase
+          .from("events")
+          .update({
+            single_frame_color_enabled: enabled,
+            single_frame_color: color,
+          } as never)
+          .eq("id", data.event.id),
+        12_000,
+        "Frame color setting update timed out.",
+      );
+
+      if (error) throw error;
+
+      await withTimeout(refetch(), 12_000, "Frame color setting saved, but refresh took too long.");
+
+      const label = FRAME_COLOR_OPTIONS.find((option) => option.value === color)?.label ?? color;
+      toast.success(
+        enabled
+          ? `One frame color enabled · ${label}`
+          : "Per-package frame colors restored",
+      );
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Frame color setting could not be saved.");
+    } finally {
+      setSavingGlobalFrameColor(false);
+    }
+  }
+
   async function toggle(item: PackageRow) {
     if (!requireStaff()) return;
 
@@ -530,6 +574,76 @@ function PackagesPage() {
             />
           </section>
 
+          <section className="mb-7 rounded-xl border border-border bg-card/65 p-4 sm:p-5">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+              <div className="max-w-2xl">
+                <div className="flex items-center gap-2">
+                  <p className="eyebrow">Frame color control</p>
+                  {globalFrameEnabled ? (
+                    <span className="rounded-full border border-primary/20 bg-primary/5 px-2 py-0.5 text-[0.62rem] font-semibold text-primary">
+                      One color for all
+                    </span>
+                  ) : null}
+                </div>
+                <h2 className="mt-1 font-display text-lg font-extrabold tracking-[-0.035em]">
+                  Use one frame color for all framed products
+                </h2>
+                <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
+                  Turn this on to hide the frame color chooser from clients and apply one color to every framed class and solo package. Turn it off anytime to restore each package’s saved colors.
+                </p>
+              </div>
+
+              <div className="flex items-center gap-3 rounded-lg border border-border bg-background/45 px-4 py-3">
+                <div className="text-right">
+                  <p className="text-xs font-semibold">{globalFrameEnabled ? "Enabled" : "Per-package colors"}</p>
+                  <p className="text-[0.65rem] text-muted-foreground">
+                    {globalFrameEnabled ? "Client chooser is hidden" : "Package settings are active"}
+                  </p>
+                </div>
+                <Switch
+                  checked={globalFrameEnabled}
+                  disabled={savingGlobalFrameColor}
+                  onCheckedChange={(checked) => void saveGlobalFrameControl(checked, globalFrameColor)}
+                  aria-label="Use one frame color for all framed products"
+                />
+              </div>
+            </div>
+
+            {globalFrameEnabled ? (
+              <div className="mt-4 border-t border-border pt-4">
+                <p className="mb-2 text-[0.67rem] font-bold uppercase tracking-[0.1em] text-muted-foreground">
+                  Frame color for all
+                </p>
+                <div className="grid gap-2 sm:grid-cols-3">
+                  {FRAME_COLOR_OPTIONS.map((option) => {
+                    const selected = globalFrameColor === option.value;
+                    return (
+                      <button
+                        key={option.value}
+                        type="button"
+                        disabled={savingGlobalFrameColor}
+                        onClick={() => void saveGlobalFrameControl(true, option.value)}
+                        className={cn(
+                          "flex items-center gap-3 rounded-lg border p-3 text-left text-sm transition",
+                          selected
+                            ? "border-primary bg-primary/5 ring-1 ring-primary"
+                            : "border-border bg-background/40 hover:border-primary/30",
+                        )}
+                      >
+                        <span className="size-5 rounded-full border border-border" style={{ background: option.swatch }} />
+                        <span className="font-semibold">{option.label}</span>
+                        {selected ? <Check className="ml-auto size-4 text-primary" /> : null}
+                      </button>
+                    );
+                  })}
+                </div>
+                <p className="mt-2 text-[0.67rem] text-muted-foreground">
+                  Original per-package frame colors stay saved. Switching this off restores them automatically.
+                </p>
+              </div>
+            ) : null}
+          </section>
+
           {open ? (
             <Panel
               className="mb-7 border-primary/20 bg-card/85"
@@ -630,6 +744,11 @@ function PackagesPage() {
                         <p className="mt-1 text-[0.67rem] text-muted-foreground">
                           Select one or more. If only one color is selected, PhotoFlow applies it automatically and hides the color chooser from the client.
                         </p>
+                        {globalFrameEnabled ? (
+                          <p className="mt-2 rounded-md border border-primary/15 bg-primary/5 px-3 py-2 text-[0.67rem] text-primary">
+                            Global frame color is active. These package colors stay saved but are temporarily overridden for clients.
+                          </p>
+                        ) : null}
                       </div>
                       <div className="grid gap-2 sm:grid-cols-3">
                         {FRAME_COLOR_OPTIONS.map((option) => {
@@ -727,6 +846,7 @@ function PackagesPage() {
                   <ProductCard
                     key={item.id}
                     item={item}
+                    globalFrameColor={globalFrameEnabled ? globalFrameColor : null}
                     onEdit={() => startEdit(item)}
                     onDuplicate={() => startDuplicate(item)}
                     onToggle={() => void toggle(item)}
@@ -764,6 +884,7 @@ function PackagesPage() {
                   <ProductCard
                     key={item.id}
                     item={item}
+                    globalFrameColor={globalFrameEnabled ? globalFrameColor : null}
                     onEdit={() => startEdit(item)}
                     onDuplicate={() => startDuplicate(item)}
                     onToggle={() => void toggle(item)}

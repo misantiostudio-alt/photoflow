@@ -182,7 +182,7 @@ function ProductCard({
 
         <div className="mt-4 flex flex-wrap gap-1.5">
           <span className="rounded-md border border-border bg-background/45 px-2 py-1 text-[0.63rem] text-muted-foreground">
-{item.framed ? `Framed + white mat · ${(item.frame_colors?.length ? item.frame_colors : ["black"]).map((color) => color[0].toUpperCase() + color.slice(1)).join(" / ")}` : "Print only"}
+            {item.framed ? `Framed + white mat · ${(item.frame_colors?.length ? item.frame_colors : ["black"]).map((color) => color[0].toUpperCase() + color.slice(1)).join(" / ")}` : "Print only"}
           </span>
           {item.digital_copy ? (
             <span className="rounded-md border border-border bg-background/45 px-2 py-1 text-[0.63rem] text-muted-foreground">

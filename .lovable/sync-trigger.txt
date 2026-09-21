@@ -1,2 +1,0 @@
-Trigger Lovable sync from GitHub main.
-2026-09-21 frame controls and package lineup sync retry.

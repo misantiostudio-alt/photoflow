@@ -21,6 +21,8 @@ export type EventRow = {
   ordering_deadline: string | null;
   delivery_date: string | null;
   payment_instructions: string | null;
+  single_frame_color_enabled?: boolean;
+  single_frame_color?: "black" | "white" | "brown";
 };
 
 export type EventGroupRow = {

@@ -285,8 +285,5 @@ begin
 end;
 $$;
 
-grant execute on function public.submit_client_order_v6(uuid,uuid,text,jsonb)
-to anon, authenticated;
-
 revoke all on function public.submit_client_order_v6(uuid,uuid,text,jsonb) from public;
 grant execute on function public.submit_client_order_v6(uuid,uuid,text,jsonb) to anon, authenticated;

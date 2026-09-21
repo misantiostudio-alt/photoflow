@@ -26,7 +26,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { supabase } from "@/integrations/supabase/client";
 import { withTimeout } from "@/lib/async";
-import { useOps, useSession, type PackageProductType, type PackageRow } from "@/lib/data";
+import { useOps, useSession, type FrameColor, type PackageProductType, type PackageRow } from "@/lib/data";
 import { peso } from "@/lib/domain";
 import { cn } from "@/lib/utils";
 
@@ -40,6 +40,7 @@ type PackageForm = {
   print_size: string;
   quantity: string;
   framed: boolean;
+  frame_colors: FrameColor[];
   digital_copy: boolean;
   description: string;
   active: boolean;
@@ -53,6 +54,7 @@ const emptyForm = (type: PackageProductType): PackageForm => ({
   print_size: type === "group_package" ? "8R / 8×10" : "5R",
   quantity: "1",
   framed: false,
+  frame_colors: ["black"],
   digital_copy: false,
   description: "",
   active: true,
@@ -67,6 +69,12 @@ const COMMON_PRINT_SIZES = [
   "11R / 11×14",
   "12×16",
 ] as const;
+
+const FRAME_COLOR_OPTIONS: Array<{ value: FrameColor; label: string; swatch: string }> = [
+  { value: "black", label: "Black", swatch: "#111214" },
+  { value: "white", label: "White", swatch: "#f1f1ed" },
+  { value: "brown", label: "Brown", swatch: "#6b422a" },
+];
 
 const PSS_DEFAULTS = [
   { code: "P1", product_type: "group_package", name: "Class Photo · Print", price: 150, print_size: "8R / 8×10", quantity: 1, framed: false, description: "Official class/group photo · print only" },
@@ -174,7 +182,7 @@ function ProductCard({
 
         <div className="mt-4 flex flex-wrap gap-1.5">
           <span className="rounded-md border border-border bg-background/45 px-2 py-1 text-[0.63rem] text-muted-foreground">
-            {item.framed ? "Framed + white mat" : "Print only"}
+{item.framed ? `Framed + white mat · ${(item.frame_colors?.length ? item.frame_colors : ["black"]).map((color) => color[0].toUpperCase() + color.slice(1)).join(" / ")}` : "Print only"}
           </span>
           {item.digital_copy ? (
             <span className="rounded-md border border-border bg-background/45 px-2 py-1 text-[0.63rem] text-muted-foreground">
@@ -274,6 +282,7 @@ function PackagesPage() {
       print_size: item.print_size,
       quantity: String(item.quantity),
       framed: item.framed,
+      frame_colors: item.frame_colors?.length ? item.frame_colors : ["black"],
       digital_copy: item.digital_copy,
       description: item.description ?? "",
       active: item.active,
@@ -292,6 +301,7 @@ function PackagesPage() {
       print_size: item.print_size,
       quantity: String(item.quantity),
       framed: item.framed,
+      frame_colors: item.frame_colors?.length ? item.frame_colors : ["black"],
       digital_copy: item.digital_copy,
       description: item.description ?? "",
       active: false,
@@ -307,6 +317,7 @@ function PackagesPage() {
 
     if (!form.name.trim()) return toast.error("Product name is required.");
     if (!Number.isFinite(price) || price < 0) return toast.error("Enter a valid price.");
+    if (form.framed && !form.frame_colors.length) return toast.error("Select at least one frame color.");
 
     if (form.product_type === "group_package" && form.code.trim()) {
       const duplicateCode = data.packages.find(
@@ -329,6 +340,7 @@ function PackagesPage() {
         print_size: form.print_size.trim() || "5R",
         quantity,
         framed: form.framed,
+        frame_colors: form.framed ? form.frame_colors : ["black"],
         digital_copy: form.digital_copy,
         description: form.description.trim() || null,
         active: form.active,
@@ -386,6 +398,7 @@ function PackagesPage() {
       const rows = missing.map((item, index) => ({
         ...item,
         event_id: data.event!.id,
+        frame_colors: ["black"] as FrameColor[],
         digital_copy: false,
         active: true,
         sort_order: data.packages.length + index + 1,
@@ -426,6 +439,20 @@ function PackagesPage() {
 
     await withTimeout(refetch(), 12_000, "Package action completed, but refresh took too long.");
     toast.success(item.active ? "Hidden from client checkout" : "Product is now visible to clients");
+  }
+
+  function toggleFrameColor(color: FrameColor, enabled: boolean) {
+    if (!enabled && form.frame_colors.length === 1 && form.frame_colors[0] === color) {
+      toast.message("Keep at least one frame color for framed products.");
+      return;
+    }
+
+    setForm({
+      ...form,
+      frame_colors: enabled
+        ? Array.from(new Set([...form.frame_colors, color]))
+        : form.frame_colors.filter((item) => item !== color),
+    });
   }
 
   async function remove(item: PackageRow) {
@@ -595,6 +622,32 @@ function PackagesPage() {
                     </label>
                   </div>
 
+                  {form.framed ? (
+                    <div className="md:col-span-2 lg:col-span-4 rounded-lg border border-border bg-background/35 p-4">
+                      <div className="mb-3">
+                        <Label>Available frame colors</Label>
+                        <p className="mt-1 text-[0.67rem] text-muted-foreground">
+                          Select one or more. If only one color is selected, PhotoFlow applies it automatically and hides the color chooser from the client.
+                        </p>
+                      </div>
+                      <div className="grid gap-2 sm:grid-cols-3">
+                        {FRAME_COLOR_OPTIONS.map((option) => {
+                          const checked = form.frame_colors.includes(option.value);
+                          return (
+                            <label key={option.value} className="flex items-center gap-3 rounded-lg border border-border bg-card/70 p-3 text-sm">
+                              <Checkbox
+                                checked={checked}
+                                onCheckedChange={(value) => toggleFrameColor(option.value, value === true)}
+                              />
+                              <span className="size-4 rounded-full border border-border" style={{ background: option.swatch }} />
+                              <span className="font-medium">{option.label}</span>
+                            </label>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ) : null}
+
                   <div className="md:col-span-2 lg:col-span-4">
                     <Field label="Description" hint="Shown under the product name">
                       <Textarea
@@ -622,7 +675,7 @@ function PackagesPage() {
                     </p>
                     <p className="mt-4 font-display text-3xl font-extrabold">{form.price ? peso(Number(form.price) || 0) : "₱—"}</p>
                     <p className="mt-1 text-[0.66rem] text-muted-foreground">
-                      {form.quantity || "1"} × {form.print_size || "Print size"} · {form.framed ? "Framed" : "Print only"}
+                      {form.quantity || "1"} × {form.print_size || "Print size"} · {form.framed ? `Framed · ${form.frame_colors.map((color) => color[0].toUpperCase() + color.slice(1)).join(" / ")}` : "Print only"}
                     </p>
                   </div>
                   <p className="mt-3 text-[0.67rem] leading-relaxed text-muted-foreground">
